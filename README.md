@@ -42,4 +42,5 @@ cd /root/clawd/projects/gym-app
 
 ## Repository Status
 - Local git repo: initialized
-- GitHub remote: pending automated setup in this task run (see latest commit/update)
+- GitHub remote: https://github.com/Jackten/gym-app
+- Default branch pushed: `main`

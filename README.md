@@ -30,6 +30,7 @@ This repo is intentionally separate from OpenClaw and other work.
 - `docs/pricing-engine.md` — pricing logic, formulas, and examples
 - `docs/booking-rules.md` — booking constraints and conflict handling
 - `docs/roadmap.md` — phased implementation plan + future features
+- `docs/workshop/technical-pass.md` — technical architecture pass (data model, pricing rules, booking concurrency model)
 
 ## Minimal Scaffold
 - `web/README.md` contains a stack-agnostic placeholder for app implementation.

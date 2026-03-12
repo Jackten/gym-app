@@ -17,9 +17,15 @@ This repo is intentionally separate from OpenClaw and other work.
   - 30 min = **$30 / 30 credits**
   - 60 min = **$50 / 50 credits**
   - each additional hour = **+$25 / +25 credits**
-- Prime-time behavior must be **dynamic from booking history** (not manually hard-coded time ranges).
-- Occupancy pricing should increase once demand builds:
-  - after **2 people** are booked in the same block, each additional booking increases price incrementally.
+- Prime-time behavior is dynamic from a **trailing 4-week booking history** (not manually hard-coded time ranges), with demand tiers:
+  - Normal `1.00x`, Warm `1.05x`, Hot `1.10x`, Peak `1.15x`
+- Live occupancy pricing (after 2 users) uses:
+  - 1st `1.00x`, 2nd `1.00x`, 3rd `1.10x`, 4th `1.20x`, 5th `1.35x`
+- Quote hold duration: **15 minutes**.
+- Cancellation policy:
+  - full refund if cancelled >2 hours before start,
+  - within 2 hours: no automatic refund,
+  - admin override available.
 - During booking, users indicate planned:
   - workout type,
   - equipment they expect to use,
@@ -30,6 +36,7 @@ This repo is intentionally separate from OpenClaw and other work.
 - `docs/pricing-engine.md` — pricing logic, formulas, and examples
 - `docs/booking-rules.md` — booking constraints and conflict handling
 - `docs/roadmap.md` — phased implementation plan + future features
+- `docs/decisions/2026-03-12-locked-pricing-booking.md` — locked pricing/booking policy snapshot
 - `docs/workshop/technical-pass.md` — technical architecture pass (data model, pricing rules, booking concurrency model)
 
 ## Minimal Scaffold

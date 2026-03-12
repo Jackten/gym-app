@@ -32,6 +32,12 @@
 ## Near-Term Decisions Needed
 1. Tech stack selection for `/web`
 2. Payment provider and compliance approach
-3. Exact occupancy surcharge curve
-4. Dynamic demand window length and threshold tuning
-5. Cancellation policy
+3. Demand-score threshold tuning/validation once real booking data accumulates
+4. Initial login method (email/password vs magic link)
+
+## Locked Product Decisions (Mar 2026)
+- Dynamic demand window: trailing 4 weeks of bookings.
+- Demand multipliers: Normal `1.00x`, Warm `1.05x`, Hot `1.10x`, Peak `1.15x`.
+- Occupancy multipliers: 1st `1.00x`, 2nd `1.00x`, 3rd `1.10x`, 4th `1.20x`, 5th `1.35x`.
+- Quote hold duration: 15 minutes.
+- Cancellation policy: full refund if cancelled >2h before start; <=2h no automatic refund; admin override available.

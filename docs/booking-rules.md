@@ -16,13 +16,18 @@
 ## 3) Occupancy Pricing Trigger
 - Occupancy in each relevant block is evaluated at quote/confirm time.
 - No occupancy surcharge for first 2 users.
-- Incremental surcharge starts at the 3rd booking in a block.
+- Occupancy multiplier curve:
+  - occupancy 1 -> `1.00x`
+  - occupancy 2 -> `1.00x`
+  - occupancy 3 -> `1.10x`
+  - occupancy 4 -> `1.20x`
+  - occupancy 5 -> `1.35x`
 - If booking spans multiple blocks, use the highest applicable occupancy tier or block-weighted method (implementation decision; highest-tier is simplest for v0).
 
 ## 4) Availability and Locking
 - Availability shown in UI is advisory until confirmation.
 - Use transactional re-check on confirm to prevent race-condition overbooking.
-- Optional quote lock (e.g., 5 minutes) to preserve displayed price before payment.
+- Quote hold duration is 15 minutes to preserve displayed price before payment.
 
 ## 5) Booking Intent & Conflict Reduction
 Collect at booking time:
@@ -39,11 +44,10 @@ Collect at booking time:
 - cancellation branch: `cancelled`
 - no-show branch (optional): `no_show`
 
-## 7) Cancellation / Refund Policy (placeholder)
-To finalize with business decision; recommend documenting before launch:
-- Refund in credits vs cash
-- Time-based penalties (e.g., <12h)
-- No-show handling
+## 7) Cancellation / Refund Policy (locked)
+- Full refund if cancelled more than 2 hours before start.
+- Within 2 hours of start: no automatic refund.
+- Admin override is available for exceptions.
 
 ## 8) Data to Persist Per Booking
 - User ID

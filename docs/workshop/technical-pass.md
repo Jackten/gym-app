@@ -97,24 +97,28 @@ Given `(user, start, duration)`:
 `total_credits = round(base_credits * demand_multiplier * occupancy_multiplier)`
 
 ### 4.2 Occupancy tier recommendation (v1)
-Keep existing shape and make values admin-configurable:
+Locked multipliers:
 - occupancy 1: `1.00`
 - occupancy 2: `1.00`
-- occupancy 3: `1.05`
-- occupancy 4: `1.10`
-- occupancy 5: `1.15`
+- occupancy 3: `1.10`
+- occupancy 4: `1.20`
+- occupancy 5: `1.35`
 
 For bookings spanning multiple 30-min slots in v1: use the **highest occupancy tier across spanned slots**.
 - Pros: simple, deterministic, fast.
 - Tradeoff: slight pricing coarseness at slot boundaries.
 
 ### 4.3 Dynamic prime-time implementation
-- Run nightly job to recompute `demand_profiles` from trailing 8–12 weeks.
+- Run nightly job to recompute `demand_profiles` from trailing 4 weeks.
 - Inputs per weekly bucket:
   - average occupancy ratio,
   - early-booking tendency (lead time),
   - full-slot frequency.
-- Map demand score into discrete multipliers (e.g., 1.00 / 1.05 / 1.10 / 1.15).
+- Map demand score into discrete multipliers:
+  - Normal `1.00`
+  - Warm `1.05`
+  - Hot `1.10`
+  - Peak `1.15`
 
 No manual “prime-time schedule” table in v1.
 
@@ -214,11 +218,13 @@ Keep admin edits versioned and auditable; avoid direct DB edits as a normal work
 
 ---
 
-## 9) Open decisions to finalize before build kickoff
-1. Exact occupancy uplift percentages (defaults above are acceptable starter values).
-2. Demand window length (8 vs 12 weeks).
-3. Quote expiry length (recommended: 3–5 minutes).
-4. Cancellation/refund policy (credit refund windows and no-show penalties).
-5. Initial login method (email code is likely best friction/scope tradeoff).
+## 9) Build-kickoff decisions status
+Locked:
+1. Occupancy multipliers: 1.00 / 1.00 / 1.10 / 1.20 / 1.35 (occupancy 1-5).
+2. Demand window length: trailing 4 weeks.
+3. Demand multipliers: Normal 1.00, Warm 1.05, Hot 1.10, Peak 1.15.
+4. Quote expiry length: 15 minutes.
+5. Cancellation/refund policy: full refund if cancelled >2h before start; <=2h no automatic refund; admin override available.
 
-This set of decisions is enough to begin implementation without architecture churn.
+Still open:
+1. Initial login method (email code is likely best friction/scope tradeoff).

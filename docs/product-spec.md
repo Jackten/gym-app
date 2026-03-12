@@ -36,8 +36,23 @@ Provide a gym booking experience that balances:
   - 120 min: 75 credits
   - N hours (>1): 50 + (N-1)*25 credits
 - **Capacity:** max 5 active overlapping bookings.
-- **Occupancy uplift trigger:** starts when occupancy exceeds 2 users in a slot.
-- **Prime time:** computed from booking history metrics, not manually fixed.
+- **Prime time (dynamic demand):** computed from the trailing 4 weeks of booking history (not manually fixed).
+- **Demand multiplier curve:**
+  - Normal = `1.00x`
+  - Warm = `1.05x`
+  - Hot = `1.10x`
+  - Peak = `1.15x`
+- **Live occupancy multiplier curve:**
+  - 1st person = `1.00x`
+  - 2nd person = `1.00x`
+  - 3rd person = `1.10x`
+  - 4th person = `1.20x`
+  - 5th person = `1.35x`
+- **Quote hold duration:** 15 minutes.
+- **Cancellation policy:**
+  - Full refund if cancelled more than 2 hours before session start.
+  - Within 2 hours of start: no automatic refund.
+  - Admin override available.
 
 ## 5) Domain Objects (Draft)
 - **User**: profile, auth method(s), preferences
@@ -51,7 +66,8 @@ Provide a gym booking experience that balances:
 ### Booking
 - Time-slot selection UI with availability and capacity indicators.
 - Real-time capacity validation at confirmation time.
-- Quote lock window (e.g., 5 min) to prevent stale pricing at checkout.
+- Quote lock window: 15 minutes to prevent stale pricing at checkout.
+- Cancellation handling with policy enforcement (>2h full refund, <=2h no automatic refund, admin override path).
 
 ### Pricing
 - Deterministic quote endpoint returning full breakdown.

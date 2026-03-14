@@ -40,7 +40,8 @@ This repo is intentionally separate from OpenClaw and other work.
 - `docs/workshop/technical-pass.md` — technical architecture pass (data model, pricing rules, booking concurrency model)
 
 ## Minimal Scaffold
-- `web/README.md` contains a stack-agnostic placeholder for app implementation.
+- `web/README.md` contains frontend setup notes.
+- `email-otp-api/` contains the serverless email OTP backend for real email verification.
 
 ## Setup
 ```bash

@@ -13,11 +13,14 @@ Runnable local prototype for:
 ## Stack
 - React 18
 - Vite 5
-- LocalStorage persistence (no backend)
+- LocalStorage persistence for app data
+- Real email OTP via external backend (`VITE_AUTH_API_BASE_URL`)
 
 ## Run locally
 ```bash
 cd /root/clawd/projects/gym-app/web
+cp .env.example .env.local
+# set VITE_AUTH_API_BASE_URL to the deployed OTP API URL
 npm install
 npm run dev
 ```
@@ -65,5 +68,6 @@ npm run build
   - admin override refund available
 
 ## Notes
-- All state is stored in browser LocalStorage (`gym-booking-prototype-v1`).
+- App/session data is stored in browser LocalStorage (`gym-booking-prototype-v2`).
+- Email OTP is verified against the backend configured by `VITE_AUTH_API_BASE_URL`.
 - Use **Reset seeded data** in the app to restore clean demo state.

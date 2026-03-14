@@ -20,6 +20,8 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      VITE_AUTH_API_BASE_URL: https://pelayo-email-otp-api-752128746083.us-central1.run.app
     defaults:
       run:
         working-directory: web

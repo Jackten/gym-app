@@ -10,6 +10,7 @@ import {
   minutesUntil,
 } from './lib/pricing';
 import { loadAppState, resetAppState, saveAppState } from './lib/storage';
+import { requestEmailOtp, verifyEmailOtp } from './lib/authApi';
 
 const DURATION_OPTIONS = [30, 60, 120, 180];
 const WORKOUT_TYPES = ['strength', 'cardio', 'conditioning', 'mobility', 'boxing', 'recovery'];
@@ -292,6 +293,7 @@ export default function App() {
   const [authPending, setAuthPending] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
   const [expectedCode, setExpectedCode] = useState('');
+  const [emailOtpRequestId, setEmailOtpRequestId] = useState('');
   const [registrationResult, setRegistrationResult] = useState(null);
 
   const [authForm, setAuthForm] = useState(EMPTY_AUTH_FORM);
@@ -445,6 +447,7 @@ export default function App() {
     setAuthPending(false);
     setOtpSent(false);
     setExpectedCode('');
+    setEmailOtpRequestId('');
     setAuthForm(EMPTY_AUTH_FORM);
     setRegistrationResult(null);
     setView(mode);
@@ -455,6 +458,7 @@ export default function App() {
     setView(mode);
     setOtpSent(false);
     setExpectedCode('');
+    setEmailOtpRequestId('');
     setAuthForm((prev) => ({
       ...prev,
       code: '',
@@ -489,31 +493,39 @@ export default function App() {
     }
   }
 
-  function sendOtp(channel) {
-    if (channel === 'phone') {
-      const phone = normalizePhone(authForm.phone);
-      if (!phone || phone.length < 8) {
-        setNotice('Enter a valid phone number first.');
-        return;
-      }
-      setAuthForm((prev) => ({ ...prev, phone, code: '' }));
+  function sendPhoneOtp() {
+    const phone = normalizePhone(authForm.phone);
+    if (!phone || phone.length < 8) {
+      setNotice('Enter a valid phone number first.');
+      return;
     }
 
-    if (channel === 'email') {
-      const email = authForm.email.trim().toLowerCase();
-      if (!email.includes('@')) {
-        setNotice('Enter a valid email address first.');
-        return;
-      }
-      setAuthForm((prev) => ({ ...prev, email, code: '' }));
-    }
+    setAuthForm((prev) => ({ ...prev, phone, code: '' }));
 
     const demoCode = generateDemoCode();
     setExpectedCode(demoCode);
     setOtpSent(true);
-    setNotice(
-      `Verification code sent via ${channel === 'phone' ? 'SMS' : 'email'} (demo): ${demoCode}`,
-    );
+    setEmailOtpRequestId('');
+    setNotice(`Verification code sent via SMS (demo): ${demoCode}`);
+  }
+
+  async function requestRealEmailOtp(email) {
+    setAuthPending(true);
+
+    try {
+      const response = await requestEmailOtp(email);
+      setAuthForm((prev) => ({ ...prev, email, code: '' }));
+      setOtpSent(true);
+      setExpectedCode('');
+      setEmailOtpRequestId(response.requestId || '');
+      setNotice(`Verification code sent to ${response.maskedEmail || email}.`);
+    } catch (error) {
+      setOtpSent(false);
+      setEmailOtpRequestId('');
+      setNotice(error?.message || 'Unable to send email code right now. Please try again.');
+    } finally {
+      setAuthPending(false);
+    }
   }
 
   function completeAuth(identityInput) {
@@ -535,6 +547,7 @@ export default function App() {
       setAuthPending(false);
       setOtpSent(false);
       setExpectedCode('');
+      setEmailOtpRequestId('');
       setNotice(`We found an existing account for ${identityLabel}. Please sign in to continue.`);
       setView('signin');
       setAuthMode('signin');
@@ -546,6 +559,7 @@ export default function App() {
       setAuthPending(false);
       setOtpSent(false);
       setExpectedCode('');
+      setEmailOtpRequestId('');
       setNotice(`No account found for ${identityLabel}. Please register first.`);
       return;
     }
@@ -558,6 +572,7 @@ export default function App() {
     setAuthPending(false);
     setOtpSent(false);
     setExpectedCode('');
+    setEmailOtpRequestId('');
 
     if (authMode === 'register') {
       setRegistrationResult({
@@ -579,7 +594,7 @@ export default function App() {
     }
   }
 
-  function handleAuthSubmit() {
+  async function handleAuthSubmit() {
     if (authPending) return;
 
     if (authMethod === 'google') {
@@ -625,7 +640,7 @@ export default function App() {
       }
 
       if (!otpSent) {
-        sendOtp('phone');
+        sendPhoneOtp();
         return;
       }
 
@@ -658,27 +673,39 @@ export default function App() {
       }
 
       if (!otpSent) {
-        sendOtp('email');
+        await requestRealEmailOtp(email);
         return;
       }
 
-      if (expectedCode && authForm.code.trim() !== expectedCode) {
-        setNotice('Invalid email code. Use the demo code shown above.');
+      if (!emailOtpRequestId) {
+        setOtpSent(false);
+        setNotice('Please request a new email code.');
         return;
       }
 
-      if (!authForm.code || authForm.code.trim().length < 4) {
-        setNotice('Enter the 4–6 digit verification code.');
+      const code = authForm.code.trim();
+      if (!code || code.length < 4) {
+        setNotice('Enter the 4–8 digit verification code.');
         return;
       }
 
       setAuthPending(true);
-      setTimeout(() => {
+
+      try {
+        await verifyEmailOtp({
+          email,
+          code,
+          requestId: emailOtpRequestId,
+        });
+
         completeAuth({
           email,
           name: authForm.name || deriveNameFromEmail(email),
         });
-      }, 650);
+      } catch (error) {
+        setAuthPending(false);
+        setNotice(error?.message || 'Invalid or expired email code. Request a new one.');
+      }
     }
   }
 
@@ -1045,6 +1072,7 @@ export default function App() {
                     setAuthMethod(method.id);
                     setOtpSent(false);
                     setExpectedCode('');
+                    setEmailOtpRequestId('');
                     setAuthForm((prev) => ({ ...prev, code: '' }));
                   }}
                 >
@@ -1188,7 +1216,23 @@ export default function App() {
 
               <div className="auth-actions">
                 {(authMethod === 'phone' || authMethod === 'email') && !otpSent && (
-                  <button onClick={() => sendOtp(authMethod)}>
+                  <button
+                    disabled={authPending}
+                    onClick={() => {
+                      if (authMethod === 'phone') {
+                        sendPhoneOtp();
+                        return;
+                      }
+
+                      const email = authForm.email.trim().toLowerCase();
+                      if (!email.includes('@')) {
+                        setNotice('Enter a valid email address first.');
+                        return;
+                      }
+
+                      requestRealEmailOtp(email);
+                    }}
+                  >
                     {`Send ${authMethod === 'phone' ? 'SMS' : 'Email'} Code`}
                   </button>
                 )}

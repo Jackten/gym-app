@@ -325,16 +325,6 @@ export default function App() {
     });
   }, [now]);
 
-  useEffect(() => {
-    if (!currentUser) return;
-
-    if (view === 'account-ready') return;
-
-    if (view === 'signin' || view === 'register') {
-      setView('booking');
-    }
-  }, [currentUser, view]);
-
   const walletBalance = currentUser ? appState.wallets[currentUser.id] || 0 : 0;
 
   const activeQuote = appState.activeQuote && isHoldActive(appState.activeQuote, now) ? appState.activeQuote : null;
@@ -427,6 +417,12 @@ export default function App() {
   }
 
   function startAuthFlow(mode) {
+    if (mode === 'signin' && currentUser) {
+      setView('booking');
+      setNotice(`You're already signed in as ${currentUser.name}.`);
+      return;
+    }
+
     setAuthMode(mode);
     setAuthMethod('google');
     setAuthPending(false);
@@ -516,31 +512,31 @@ export default function App() {
     };
 
     const existingUser = findUserByIdentity(appState, identity);
+    const identityLabel = identity.email || identity.phone || identity.walletAddress || 'that identity';
 
     if (authMode === 'register' && existingUser) {
       setAuthPending(false);
       setOtpSent(false);
       setExpectedCode('');
-      setNotice(
-        authMode === 'register'
-          ? `We found an existing account for ${identity.email || identity.phone || identity.walletAddress}. Please sign in to continue.`
-          : 'Account not found.',
-      );
+      setNotice(`We found an existing account for ${identityLabel}. Please sign in to continue.`);
       setView('signin');
       setAuthMode('signin');
       setAuthMethod(authMethod);
       return;
     }
 
-    let outcome = { created: false, user: null };
+    if (authMode === 'signin' && !existingUser) {
+      setAuthPending(false);
+      setOtpSent(false);
+      setExpectedCode('');
+      setNotice(`No account found for ${identityLabel}. Please register first.`);
+      return;
+    }
 
-    setAppState((prev) => {
-      const next = structuredClone(prev);
-      const upsert = upsertUserFromIdentity(next, identity);
-      next.currentUserId = upsert.user.id;
-      outcome = upsert;
-      return next;
-    });
+    const nextState = structuredClone(appState);
+    const outcome = upsertUserFromIdentity(nextState, identity);
+    nextState.currentUserId = outcome.user.id;
+    setAppState(nextState);
 
     setAuthPending(false);
     setOtpSent(false);
@@ -558,12 +554,7 @@ export default function App() {
     }
 
     setView('booking');
-
-    if (outcome.created) {
-      setNotice(`Welcome to Pelayo Wellness, ${outcome.user.name}. Your new account is ready.`);
-    } else {
-      setNotice(`Welcome back, ${outcome.user.name}.`);
-    }
+    setNotice(`Welcome back, ${outcome.user.name}.`);
   }
 
   function handleAuthSubmit() {
@@ -976,7 +967,7 @@ export default function App() {
                 Reserve your slot, plan equipment in advance, and lock transparent demand-based pricing before you arrive.
               </p>
               <div className="hero-actions">
-                <button className="btn-primary" onClick={() => startAuthFlow('signin')}>
+                <button className="btn-primary" onClick={() => (currentUser ? setView('booking') : startAuthFlow('signin'))}>
                   Book a Session
                 </button>
                 <button className="btn-secondary" onClick={() => startAuthFlow('register')}>

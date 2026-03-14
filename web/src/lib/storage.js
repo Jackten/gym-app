@@ -1,6 +1,18 @@
 import { createSeedState } from '../data/seed';
 
-const STORAGE_KEY = 'gym-booking-prototype-v1';
+const STORAGE_KEY = 'gym-booking-prototype-v2';
+
+function isValidStateShape(value) {
+  if (!value || typeof value !== 'object') return false;
+  if (!Array.isArray(value.users)) return false;
+  if (!Array.isArray(value.bookings)) return false;
+  if (!Array.isArray(value.transactions)) return false;
+  if (!value.wallets || typeof value.wallets !== 'object') return false;
+  if (!Array.isArray(value.packages)) return false;
+  if (typeof value.nextBookingId !== 'number') return false;
+  if (typeof value.nextTransactionId !== 'number') return false;
+  return true;
+}
 
 export function loadAppState() {
   try {
@@ -12,8 +24,8 @@ export function loadAppState() {
     }
 
     const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== 'object') {
-      throw new Error('Corrupt state');
+    if (!isValidStateShape(parsed)) {
+      throw new Error('Corrupt or outdated state');
     }
 
     return parsed;

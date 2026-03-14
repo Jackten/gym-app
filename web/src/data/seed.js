@@ -242,9 +242,9 @@ export function createSeedState() {
   ];
 
   return {
-    version: 1,
+    version: 2,
     users: USERS,
-    currentUserId: 'u1',
+    currentUserId: null,
     wallets: {
       u1: 120,
       u2: 210,

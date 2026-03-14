@@ -18,41 +18,44 @@ const AUTH_METHODS = [
     id: 'google',
     title: 'Google',
     subtitle: 'Continue with your Google account',
+    icon: '🔑',
   },
   {
     id: 'ethereum',
     title: 'Ethereum',
-    subtitle: 'Connect wallet and create/sign-in with address',
+    subtitle: 'Connect wallet to sign in',
+    icon: '⬡',
   },
   {
     id: 'phone',
     title: 'Phone',
-    subtitle: 'SMS one-time code verification',
+    subtitle: 'SMS verification code',
+    icon: '📱',
   },
   {
     id: 'email',
     title: 'Email',
-    subtitle: 'Magic-code sign-in by email',
+    subtitle: 'Magic-code sign-in',
+    icon: '✉️',
   },
 ];
 
 const AUTH_VIEW_COPY = {
   signin: {
     eyebrow: 'Member Sign-in',
-    title: 'Welcome back to Pelayo Wellness',
-    blurb: 'Use your preferred method to access an existing account and continue booking.',
+    title: 'Welcome back',
+    blurb: 'Choose your preferred method to access your account.',
     ctaLabel: 'Continue',
     modeCopy: 'Sign in',
-    switchText: 'Need a new account?',
+    switchText: 'New here? Create an account →',
   },
   register: {
-    eyebrow: 'Create account',
-    title: 'Create your Pelayo Wellness account',
-    blurb:
-      'Start a new account with the same authentication options. Real-world providers are surfaced, with simulation for backend checks.',
+    eyebrow: 'Create Account',
+    title: 'Join Pelayo Wellness',
+    blurb: 'Create your account to start booking premium training sessions.',
     ctaLabel: 'Create account',
     modeCopy: 'Register',
-    switchText: 'Already have an account?',
+    switchText: 'Already have an account? Sign in →',
   },
 };
 
@@ -271,7 +274,7 @@ function abbreviateWallet(address) {
   if (!address) return '';
   const trimmed = address.trim();
   if (trimmed.length <= 14) return trimmed;
-  return `${trimmed.slice(0, 7)}...${trimmed.slice(-4)}`;
+  return `${trimmed.slice(0, 7)}…${trimmed.slice(-4)}`;
 }
 
 function generateDemoCode() {
@@ -327,13 +330,18 @@ export default function App() {
 
   useEffect(() => {
     if (!currentUser) return;
-
     if (view === 'account-ready') return;
-
     if (view === 'signin' || view === 'register') {
       setView('booking');
     }
   }, [currentUser, view]);
+
+  // Auto-dismiss notices after 6 seconds
+  useEffect(() => {
+    if (!notice) return;
+    const timer = setTimeout(() => setNotice(''), 6000);
+    return () => clearTimeout(timer);
+  }, [notice]);
 
   const walletBalance = currentUser ? appState.wallets[currentUser.id] || 0 : 0;
 
@@ -499,7 +507,7 @@ export default function App() {
     setExpectedCode(demoCode);
     setOtpSent(true);
     setNotice(
-      `Verification code sent via ${channel === 'phone' ? 'SMS' : 'email'} (demo simulation): ${demoCode}. Enter it to continue.`,
+      `Verification code sent via ${channel === 'phone' ? 'SMS' : 'email'} (demo): ${demoCode}`,
     );
   }
 
@@ -522,9 +530,7 @@ export default function App() {
       setOtpSent(false);
       setExpectedCode('');
       setNotice(
-        authMode === 'register'
-          ? `We found an existing account for ${identity.email || identity.phone || identity.walletAddress}. Please sign in to continue.`
-          : 'Account not found.',
+        `We found an existing account for ${identity.email || identity.phone || identity.walletAddress}. Please sign in instead.`,
       );
       setView('signin');
       setAuthMode('signin');
@@ -552,7 +558,7 @@ export default function App() {
         method: authMethod,
         created: outcome.created,
       });
-      setNotice(`Welcome to Pelayo Wellness, ${outcome.user.name}. Your account is ready to use.`);
+      setNotice(`Welcome to Pelayo Wellness, ${outcome.user.name}!`);
       setView('account-ready');
       return;
     }
@@ -560,7 +566,7 @@ export default function App() {
     setView('booking');
 
     if (outcome.created) {
-      setNotice(`Welcome to Pelayo Wellness, ${outcome.user.name}. Your new account is ready.`);
+      setNotice(`Welcome to Pelayo Wellness, ${outcome.user.name}!`);
     } else {
       setNotice(`Welcome back, ${outcome.user.name}.`);
     }
@@ -671,7 +677,7 @@ export default function App() {
 
   function proceedToBooking() {
     setView('booking');
-    setNotice('Great — you can now book your first session.');
+    setNotice("You're all set \u2014 book your first session below.");
   }
 
   function signOut() {
@@ -709,7 +715,7 @@ export default function App() {
       return next;
     });
 
-    setNotice(`Top-up complete: +${pkg.credits} credits for $${pkg.cash}.`);
+    setNotice(`+${pkg.credits} credits added to your wallet.`);
   }
 
   function buildQuote() {
@@ -778,7 +784,7 @@ export default function App() {
       },
     }));
 
-    setNotice('Quote locked for 15 minutes.');
+    setNotice('Quote locked for 15 minutes. Confirm to complete booking.');
   }
 
   function confirmQuote() {
@@ -798,7 +804,7 @@ export default function App() {
     }
 
     if (walletBalance < activeQuote.pricing.finalCredits) {
-      setNotice(`Insufficient credits. Need ${activeQuote.pricing.finalCredits}, have ${walletBalance}. Buy a package first.`);
+      setNotice(`Insufficient credits. Need ${activeQuote.pricing.finalCredits}, have ${walletBalance}. Top up first.`);
       return;
     }
 
@@ -811,7 +817,7 @@ export default function App() {
     });
 
     if (!recheck.ok) {
-      setNotice('Capacity changed while confirming. Please request a new quote.');
+      setNotice('Capacity changed. Please request a new quote.');
       setAppState((prev) => ({ ...prev, activeQuote: null }));
       return;
     }
@@ -848,7 +854,7 @@ export default function App() {
       return next;
     });
 
-    setNotice(`Booking confirmed. Charged ${activeQuote.pricing.finalCredits} credits.`);
+    setNotice(`Booking confirmed — ${activeQuote.pricing.finalCredits} credits charged.`);
   }
 
   function cancelBooking(bookingId) {
@@ -889,9 +895,9 @@ export default function App() {
 
     const mins = minutesUntil(booking.startISO, now);
     if (mins > 120) {
-      setNotice('Booking cancelled. Full refund applied (>2h before start).');
+      setNotice('Booking cancelled. Full refund applied.');
     } else {
-      setNotice('Booking cancelled within 2h. No automatic refund (admin override available).');
+      setNotice('Booking cancelled within 2h of start — no automatic refund.');
     }
   }
 
@@ -921,7 +927,7 @@ export default function App() {
       return next;
     });
 
-    setNotice('Admin override applied: remaining credits refunded.');
+    setNotice('Admin override applied — remaining credits refunded.');
   }
 
   function resetDemo() {
@@ -938,7 +944,7 @@ export default function App() {
   }
 
   const authCopy = AUTH_VIEW_COPY[authMode];
-  const authActionLabel = authMode === 'register' ? `Create account` : `Continue to ${authMode === 'signin' ? 'account' : 'booking'}`;
+  const authActionLabel = authMode === 'register' ? 'Create account' : 'Sign in';
   const registrationReadyMethodLabel = registrationResult ? toTitleCase(registrationResult.method) : '';
 
   return (
@@ -948,7 +954,7 @@ export default function App() {
 
       <main className="app">
         <header className="topbar">
-          <div>
+          <div className="topbar-brand">
             <p className="eyebrow">Pelayo Studio Platform</p>
             <h1>Pelayo Wellness</h1>
           </div>
@@ -956,31 +962,37 @@ export default function App() {
           {currentUser ? (
             <div className="topbar-actions">
               <div className="member-pill">
-                Signed in as <strong>{currentUser.name}</strong>
+                <strong>{currentUser.name}</strong>
               </div>
               <button onClick={signOut}>Sign out</button>
             </div>
           ) : (
-            <button onClick={() => startAuthFlow('signin')}>Sign in</button>
+            <div className="topbar-actions">
+              <button onClick={() => startAuthFlow('signin')}>Sign in</button>
+              <button className="btn-primary" onClick={() => startAuthFlow('register')}>
+                Get started
+              </button>
+            </div>
           )}
         </header>
 
         {notice && <div className="notice">{notice}</div>}
 
+        {/* ── Landing ─────────────────────────── */}
         {view === 'landing' && (
           <section className="hero card">
             <div className="hero-content">
-              <p className="eyebrow">High-performance private training</p>
-              <h2>A premium booking experience for serious training.</h2>
+              <p className="eyebrow">Private Training Studio</p>
+              <h2>Train on your terms.<br />No crowds, no compromises.</h2>
               <p>
-                Reserve your slot, plan equipment in advance, and lock transparent demand-based pricing before you arrive.
+                Reserve your slot, plan your equipment, and lock transparent demand-based pricing — all before you arrive.
               </p>
               <div className="hero-actions">
-                <button className="btn-primary" onClick={() => startAuthFlow('signin')}>
-                  Book a Session
+                <button className="btn-primary" onClick={() => startAuthFlow('register')}>
+                  Get Started
                 </button>
-                <button className="btn-secondary" onClick={() => startAuthFlow('register')}>
-                  Register
+                <button className="btn-secondary" onClick={() => startAuthFlow('signin')}>
+                  Sign In
                 </button>
               </div>
             </div>
@@ -996,12 +1008,13 @@ export default function App() {
               </article>
               <article>
                 <span>Avg Session Price</span>
-                <strong>{landingStats.avgSessionCredits} credits</strong>
+                <strong>{landingStats.avgSessionCredits} cr</strong>
               </article>
             </div>
           </section>
         )}
 
+        {/* ── Auth ────────────────────────────── */}
         {(view === 'signin' || view === 'register') && (
           <section className="card auth-card">
             <div className="auth-header">
@@ -1010,7 +1023,7 @@ export default function App() {
                 <h2>{authCopy.title}</h2>
                 <p>{authCopy.blurb}</p>
               </div>
-              <button onClick={() => setView('landing')}>Back</button>
+              <button onClick={() => setView('landing')}>← Back</button>
             </div>
 
             <div className="auth-methods">
@@ -1025,22 +1038,24 @@ export default function App() {
                     setAuthForm((prev) => ({ ...prev, code: '' }));
                   }}
                 >
-                  <strong>{method.title}</strong>
+                  <strong>{method.icon} {method.title}</strong>
                   <span>{method.subtitle}</span>
                 </button>
               ))}
             </div>
 
             <div className="auth-form">
-              <label>
-                Full name {authMode === 'register' ? '(for account profile)' : '(optional)'}
-                <input
-                  type="text"
-                  value={authForm.name}
-                  onChange={(e) => setAuthForm((prev) => ({ ...prev, name: e.target.value }))}
-                  placeholder="e.g. Maria Pelayo"
-                />
-              </label>
+              {authMode === 'register' && (
+                <label>
+                  Full name
+                  <input
+                    type="text"
+                    value={authForm.name}
+                    onChange={(e) => setAuthForm((prev) => ({ ...prev, name: e.target.value }))}
+                    placeholder="e.g. Maria Pelayo"
+                  />
+                </label>
+              )}
 
               {authMethod === 'google' && (
                 <>
@@ -1053,11 +1068,17 @@ export default function App() {
                       placeholder="you@gmail.com"
                     />
                   </label>
-                  <p className="auth-helper muted">
-                    {authMode === 'signin'
-                      ? 'Google flow checks for an existing account and continues if found. In this static version this is validated locally.'
-                      : 'Google account creation creates a fresh Pelayo account only if the email is not already linked locally.'}
-                  </p>
+                  {authMode === 'signin' && (
+                    <label>
+                      Name (optional)
+                      <input
+                        type="text"
+                        value={authForm.name}
+                        onChange={(e) => setAuthForm((prev) => ({ ...prev, name: e.target.value }))}
+                        placeholder="e.g. Maria Pelayo"
+                      />
+                    </label>
+                  )}
                 </>
               )}
 
@@ -1074,10 +1095,12 @@ export default function App() {
                   </label>
                   <div className="row">
                     <button onClick={connectWallet} disabled={authPending}>
-                      {authPending ? 'Connecting wallet…' : 'Connect Wallet'}
+                      {authPending ? 'Connecting…' : 'Connect Wallet'}
                     </button>
                     {authForm.walletAddress ? (
-                      <span className="auth-helper muted">Connected: {abbreviateWallet(authForm.walletAddress)}</span>
+                      <span className="muted" style={{ fontSize: '0.82rem' }}>
+                        Connected: {abbreviateWallet(authForm.walletAddress)}
+                      </span>
                     ) : null}
                   </div>
                   <label>
@@ -1089,11 +1112,6 @@ export default function App() {
                       placeholder="you@example.com"
                     />
                   </label>
-                  <p className="auth-helper muted">
-                    {authMode === 'register'
-                      ? 'Signing with Ethereum creates a new wallet-linked account and links the recovery email to the profile.'
-                      : 'Signing with Ethereum links to an existing wallet account if one exists.'}
-                  </p>
                 </>
               )}
 
@@ -1116,6 +1134,7 @@ export default function App() {
                         value={authForm.code}
                         onChange={(e) => setAuthForm((prev) => ({ ...prev, code: e.target.value }))}
                         placeholder="6-digit code"
+                        autoFocus
                       />
                     </label>
                   )}
@@ -1150,6 +1169,7 @@ export default function App() {
                         value={authForm.code}
                         onChange={(e) => setAuthForm((prev) => ({ ...prev, code: e.target.value }))}
                         placeholder="Enter verification code"
+                        autoFocus
                       />
                     </label>
                   )}
@@ -1158,12 +1178,17 @@ export default function App() {
 
               <div className="auth-actions">
                 {(authMethod === 'phone' || authMethod === 'email') && !otpSent && (
-                  <button onClick={() => sendOtp(authMethod)}>{`Send ${authMethod === 'phone' ? 'SMS' : 'Email'} Code`}</button>
+                  <button onClick={() => sendOtp(authMethod)}>
+                    {`Send ${authMethod === 'phone' ? 'SMS' : 'Email'} Code`}
+                  </button>
                 )}
                 <button className="btn-primary" disabled={authPending} onClick={handleAuthSubmit}>
                   {authPending ? 'Processing…' : authActionLabel}
                 </button>
-                <button className="btn-secondary" onClick={() => switchAuthMode(authMode === 'signin' ? 'register' : 'signin')}>
+                <button
+                  className="btn-secondary"
+                  onClick={() => switchAuthMode(authMode === 'signin' ? 'register' : 'signin')}
+                >
                   {authCopy.switchText}
                 </button>
               </div>
@@ -1171,44 +1196,44 @@ export default function App() {
           </section>
         )}
 
+        {/* ── Account Ready ──────────────────── */}
         {view === 'account-ready' && registrationResult && (
-          <section className="card">
-            <h2>Account ready</h2>
+          <section className="card account-ready">
+            <div className="success-icon">✓</div>
+            <h2>You're in.</h2>
             <p className="muted">
-              {registrationResult.user.name}, your Pelayo Wellness account has been created via{' '}
-              <strong>{registrationReadyMethodLabel}</strong> and is now active.
-            </p>
-            <p className="muted">
-              Next step: create your first booking to secure a training slot and start using your credits.
+              {registrationResult.user.name}, your account was created via{' '}
+              <strong>{registrationReadyMethodLabel}</strong>. You're ready to book your first session.
             </p>
             <div className="row action-row">
               <button className="btn-primary" onClick={proceedToBooking}>
-                Continue to booking
+                Book your first session →
               </button>
-              <button onClick={() => setView('landing')}>Return to home</button>
+              <button onClick={() => setView('landing')}>Return home</button>
             </div>
           </section>
         )}
 
+        {/* ── Booking Dashboard ──────────────── */}
         {view === 'booking' && currentUser && (
           <>
             <section className="card member-summary">
               <div>
                 <p className="eyebrow">Member Dashboard</p>
-                <h2>Book your next training block</h2>
+                <h2>Book your next session</h2>
                 <p className="muted">
-                  Select your time, workout profile, and planned equipment to help avoid floor conflicts.
+                  Select your time, workout profile, and planned equipment.
                 </p>
               </div>
               <div className="wallet-block">
-                <span>Wallet</span>
-                <strong>{walletBalance} credits</strong>
+                <span>Credit Balance</span>
+                <strong>{walletBalance}</strong>
               </div>
             </section>
 
             <section className="card">
-              <h3>Credits & top-ups</h3>
-              <p className="muted">1 credit = $1 equivalent. Packages keep previous pricing behavior.</p>
+              <h3>Top Up Credits</h3>
+              <p className="muted section-desc">1 credit = $1 equivalent. Choose a package to add credits to your wallet.</p>
               <div className="packages">
                 {appState.packages.map((pkg) => (
                   <button key={pkg.id} onClick={() => handleTopUp(pkg)}>
@@ -1222,7 +1247,7 @@ export default function App() {
             </section>
 
             <section className="card">
-              <h3>Session booking</h3>
+              <h3>Session Details</h3>
 
               <div className="form-grid">
                 <label>
@@ -1287,8 +1312,10 @@ export default function App() {
 
               <div className="equipment-groups">
                 <div className="equipment-head">
-                  <h4>Planned equipment</h4>
-                  <p className="muted">Grouped by zones so coaches can minimize overlap and equipment conflicts.</p>
+                  <h4>Planned Equipment</h4>
+                  <p className="muted" style={{ fontSize: '0.84rem', margin: 0 }}>
+                    Select what you'll use so coaches can minimize floor conflicts.
+                  </p>
                 </div>
 
                 {EQUIPMENT_TAXONOMY.map((group) => (
@@ -1311,195 +1338,210 @@ export default function App() {
               </div>
 
               <div className="row action-row">
-                <button onClick={buildQuote}>Get quote (hold 15 min)</button>
+                <button onClick={buildQuote}>Get Quote (15 min hold)</button>
                 <button onClick={confirmQuote} className="btn-primary">
-                  Confirm booking
+                  Confirm Booking
                 </button>
               </div>
 
               {activeQuote ? (
                 <div className="quote">
-                  <h4>Active quote</h4>
+                  <h4>Active Quote</h4>
                   <p>
-                    Slot: <strong>{formatDateTime(activeQuote.startISO)}</strong> ({activeQuote.durationMinutes} min)
+                    <strong>{formatDateTime(activeQuote.startISO)}</strong> · {activeQuote.durationMinutes} min
                   </p>
                   <p>
-                    Planned equipment: <strong>{activeQuote.equipment.map((item) => equipmentLabel(item)).join(', ')}</strong>
+                    Equipment: {activeQuote.equipment.map((item) => equipmentLabel(item)).join(', ')}
                   </p>
                   <p>
                     Hold expires in <strong>{Math.floor(quoteSecondsLeft / 60)}m {quoteSecondsLeft % 60}s</strong>
                   </p>
-                  <table>
-                    <tbody>
-                      <tr>
-                        <th>Base</th>
-                        <td>{activeQuote.pricing.baseCredits} credits</td>
-                      </tr>
-                      <tr>
-                        <th>Demand tier</th>
-                        <td>
-                          {activeQuote.pricing.demandTier} ({activeQuote.pricing.demandMultiplier.toFixed(2)}x, history count{' '}
-                          {activeQuote.pricing.demandCount})
-                        </td>
-                      </tr>
-                      <tr>
-                        <th>Occupancy multiplier</th>
-                        <td>
-                          occupancy #{activeQuote.pricing.occupancyAtQuote} ({activeQuote.pricing.occupancyMultiplier.toFixed(2)}x)
-                        </td>
-                      </tr>
-                      <tr>
-                        <th>Final</th>
-                        <td>
-                          <strong>{activeQuote.pricing.finalCredits} credits</strong>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
+                  <div className="table-wrap">
+                    <table>
+                      <tbody>
+                        <tr>
+                          <th>Base</th>
+                          <td>{activeQuote.pricing.baseCredits} credits</td>
+                        </tr>
+                        <tr>
+                          <th>Demand</th>
+                          <td>
+                            {activeQuote.pricing.demandTier} ({activeQuote.pricing.demandMultiplier.toFixed(2)}×)
+                          </td>
+                        </tr>
+                        <tr>
+                          <th>Occupancy</th>
+                          <td>
+                            #{activeQuote.pricing.occupancyAtQuote} ({activeQuote.pricing.occupancyMultiplier.toFixed(2)}×)
+                          </td>
+                        </tr>
+                        <tr>
+                          <th>Total</th>
+                          <td>
+                            <strong>{activeQuote.pricing.finalCredits} credits</strong>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               ) : (
-                <p className="muted">No active quote. Build one to lock current pricing for 15 minutes.</p>
+                <p className="muted" style={{ marginTop: '0.75rem', fontSize: '0.85rem' }}>
+                  No active quote. Get a quote to lock current pricing for 15 minutes.
+                </p>
               )}
             </section>
 
             <section className="card">
-              <h3>Live demand + occupancy board (1-hour view)</h3>
-              <p className="muted">Trailing 4-week demand tiers + live occupancy (max 5 athletes).</p>
-              <table>
-                <thead>
-                  <tr>
-                    <th>Time</th>
-                    <th>Current occupancy</th>
-                    <th>Next occupancy tier</th>
-                    <th>4-week demand</th>
-                    <th>Estimated 60m price</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {slotRows.map((row) => (
-                    <tr key={row.hour}>
-                      <td>{String(row.hour).padStart(2, '0')}:00</td>
-                      <td>{row.maxExisting}/5</td>
-                      <td>
-                        #{row.nextOccupancy} ({row.occupancyMultiplier.toFixed(2)}x)
-                      </td>
-                      <td>
-                        {row.demandTier.name} ({row.demandTier.multiplier.toFixed(2)}x, count {row.demandCount})
-                      </td>
-                      <td>{row.estFinalCredits} credits</td>
+              <h3>Demand & Availability</h3>
+              <p className="muted section-desc">
+                Live occupancy and trailing 4-week demand for 1-hour blocks. Max 5 athletes per slot.
+              </p>
+              <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Time</th>
+                      <th>Occupancy</th>
+                      <th>Next Tier</th>
+                      <th>4-Week Demand</th>
+                      <th>Est. 60m Price</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {slotRows.map((row) => (
+                      <tr key={row.hour}>
+                        <td>{String(row.hour).padStart(2, '0')}:00</td>
+                        <td>{row.maxExisting}/5</td>
+                        <td>
+                          #{row.nextOccupancy} ({row.occupancyMultiplier.toFixed(2)}×)
+                        </td>
+                        <td>
+                          {row.demandTier.name} ({row.demandTier.multiplier.toFixed(2)}×)
+                        </td>
+                        <td><strong>{row.estFinalCredits}</strong> cr</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </section>
 
             <section className="card">
-              <h3>My bookings</h3>
-              <table>
-                <thead>
-                  <tr>
-                    <th>When</th>
-                    <th>Status</th>
-                    <th>Type / Equipment</th>
-                    <th>Charged</th>
-                    <th>Refund</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {myBookings.map((booking) => {
-                    const isFuture = new Date(booking.startISO) > now;
-                    const canCancel = booking.status === 'confirmed' && isFuture;
-                    return (
-                      <tr key={booking.id}>
-                        <td>
-                          {formatDateTime(booking.startISO)} ({booking.durationMinutes}m)
-                        </td>
-                        <td>{booking.status}</td>
-                        <td>
-                          {toTitleCase(booking.workoutType)} / {booking.equipment.map((item) => equipmentLabel(item)).join(', ')}
-                        </td>
-                        <td>{booking.pricing?.finalCredits || '-'} credits</td>
-                        <td>
-                          {booking.refundCredits ? `${booking.refundCredits} credits` : '-'}
-                          {booking.refundMode ? <span className="muted"> ({booking.refundMode})</span> : ''}
-                        </td>
-                        <td>
-                          {canCancel ? (
-                            <button onClick={() => cancelBooking(booking.id)}>Cancel</button>
-                          ) : (
-                            <span className="muted">—</span>
-                          )}
+              <h3>My Bookings</h3>
+              <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>When</th>
+                      <th>Status</th>
+                      <th>Type / Equipment</th>
+                      <th>Charged</th>
+                      <th>Refund</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {myBookings.length === 0 && (
+                      <tr>
+                        <td colSpan="6" style={{ textAlign: 'center', padding: '1.5rem 0.5rem' }}>
+                          <span className="muted">No bookings yet. Create your first session above.</span>
                         </td>
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                    )}
+                    {myBookings.map((booking) => {
+                      const isFuture = new Date(booking.startISO) > now;
+                      const canCancel = booking.status === 'confirmed' && isFuture;
+                      return (
+                        <tr key={booking.id}>
+                          <td>
+                            {formatDateTime(booking.startISO)} ({booking.durationMinutes}m)
+                          </td>
+                          <td>{booking.status}</td>
+                          <td>
+                            {toTitleCase(booking.workoutType)} / {booking.equipment.map((item) => equipmentLabel(item)).join(', ')}
+                          </td>
+                          <td>{booking.pricing?.finalCredits || '-'} cr</td>
+                          <td>
+                            {booking.refundCredits ? `${booking.refundCredits} cr` : '—'}
+                          </td>
+                          <td>
+                            {canCancel ? (
+                              <button onClick={() => cancelBooking(booking.id)}>Cancel</button>
+                            ) : (
+                              <span className="muted">—</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </section>
 
             <section className="card">
-              <h3>Operations panel (demo)</h3>
+              <h3>Operations Panel</h3>
+              <p className="muted section-desc">Demo controls for testing pricing and booking mechanics.</p>
               <div className="row">
                 <label>
-                  Demo clock offset (minutes)
+                  Clock offset (minutes)
                   <input
                     type="number"
                     value={appState.clockOffsetMinutes || 0}
                     onChange={(e) => setClockOffset(e.target.value)}
                   />
                 </label>
-                <button onClick={resetDemo}>Reset seeded data</button>
+                <button onClick={resetDemo}>Reset Demo Data</button>
               </div>
 
-              <h4>All bookings</h4>
-              <table>
-                <thead>
-                  <tr>
-                    <th>ID</th>
-                    <th>User</th>
-                    <th>Start</th>
-                    <th>Status</th>
-                    <th>Price</th>
-                    <th>Refund</th>
-                    <th>Admin action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {allBookings.map((booking) => {
-                    const user = appState.users.find((u) => u.id === booking.userId);
-                    const canOverride =
-                      booking.status === 'cancelled' && (booking.refundCredits || 0) < (booking.pricing?.finalCredits || 0);
+              <h4 style={{ marginTop: '1.25rem' }}>All Bookings</h4>
+              <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>User</th>
+                      <th>Start</th>
+                      <th>Status</th>
+                      <th>Price</th>
+                      <th>Refund</th>
+                      <th>Admin</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {allBookings.map((booking) => {
+                      const user = appState.users.find((u) => u.id === booking.userId);
+                      const canOverride =
+                        booking.status === 'cancelled' && (booking.refundCredits || 0) < (booking.pricing?.finalCredits || 0);
 
-                    return (
-                      <tr key={booking.id}>
-                        <td>{booking.id}</td>
-                        <td>{user?.name || booking.userId}</td>
-                        <td>{formatDateTime(booking.startISO)}</td>
-                        <td>{booking.status}</td>
-                        <td>{booking.pricing?.finalCredits || '-'} cr</td>
-                        <td>{booking.refundCredits || 0} cr</td>
-                        <td>
-                          {canOverride ? (
-                            <button onClick={() => applyAdminOverrideRefund(booking.id)}>Override refund</button>
-                          ) : (
-                            <span className="muted">—</span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                      return (
+                        <tr key={booking.id}>
+                          <td>{booking.id}</td>
+                          <td>{user?.name || booking.userId}</td>
+                          <td>{formatDateTime(booking.startISO)}</td>
+                          <td>{booking.status}</td>
+                          <td>{booking.pricing?.finalCredits || '-'} cr</td>
+                          <td>{booking.refundCredits || 0} cr</td>
+                          <td>
+                            {canOverride ? (
+                              <button onClick={() => applyAdminOverrideRefund(booking.id)}>Override</button>
+                            ) : (
+                              <span className="muted">—</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </section>
           </>
         )}
 
         <footer className="muted">
-          <p>
-            Pricing constants: 30m=30, 60m=50, +25/hr | Demand tiers: 1.00 / 1.05 / 1.10 / 1.15 | Occupancy: 1.00,
-            1.00, 1.10, 1.20, 1.35 | Capacity cap: 5.
-          </p>
+          <p>Pelayo Wellness · Premium Private Training</p>
         </footer>
       </main>
     </div>

@@ -1,0 +1,700 @@
+import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react';
+import { loadAppState, resetAppState, saveAppState } from '../lib/storage';
+import { requestEmailOtp, verifyEmailOtp } from '../lib/authApi';
+import {
+  calculateQuote,
+  isHoldActive,
+  minutesUntil,
+  getOccupancyByBlock,
+  getDemandCount,
+  getDemandTier,
+  getBaseCredits,
+  getOccupancyMultiplier,
+} from '../lib/pricing';
+import {
+  normalizePhone,
+  deriveNameFromEmail,
+  findUserByIdentity,
+  upsertUserFromIdentity,
+  addTransaction,
+  sortByStartDesc,
+  generateDemoCode,
+  createLocalDate,
+} from '../lib/helpers';
+
+const AppContext = createContext(null);
+
+export function useApp() {
+  const ctx = useContext(AppContext);
+  if (!ctx) throw new Error('useApp must be used inside AppProvider');
+  return ctx;
+}
+
+export function AppProvider({ children }) {
+  const [appState, setAppState] = useState(() => loadAppState());
+  const [nowMs, setNowMs] = useState(Date.now());
+  const [notice, setNotice] = useState('');
+
+  // Auth UI state
+  const [authMethod, setAuthMethod] = useState('google');
+  const [authPending, setAuthPending] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
+  const [expectedCode, setExpectedCode] = useState('');
+  const [emailOtpRequestId, setEmailOtpRequestId] = useState('');
+  const [registrationResult, setRegistrationResult] = useState(null);
+
+  const now = useMemo(
+    () => new Date(nowMs + (appState.clockOffsetMinutes || 0) * 60_000),
+    [nowMs, appState.clockOffsetMinutes],
+  );
+
+  const currentUser = appState.users.find((u) => u.id === appState.currentUserId) || null;
+  const walletBalance = currentUser ? appState.wallets[currentUser.id] || 0 : 0;
+
+  const activeQuote =
+    appState.activeQuote && isHoldActive(appState.activeQuote, now) ? appState.activeQuote : null;
+
+  const quoteSecondsLeft = activeQuote
+    ? Math.max(0, Math.floor((new Date(activeQuote.holdExpiresAt).getTime() - now.getTime()) / 1000))
+    : 0;
+
+  useEffect(() => {
+    const id = setInterval(() => setNowMs(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    saveAppState(appState);
+  }, [appState]);
+
+  useEffect(() => {
+    setAppState((prev) => {
+      if (!prev.activeQuote) return prev;
+      if (isHoldActive(prev.activeQuote, now)) return prev;
+      return { ...prev, activeQuote: null };
+    });
+  }, [now]);
+
+  // Auto-dismiss notices
+  useEffect(() => {
+    if (!notice) return;
+    const timer = setTimeout(() => setNotice(''), 6000);
+    return () => clearTimeout(timer);
+  }, [notice]);
+
+  const myBookings = useMemo(() => {
+    if (!currentUser) return [];
+    return appState.bookings.filter((b) => b.userId === currentUser.id).sort(sortByStartDesc);
+  }, [appState.bookings, currentUser]);
+
+  const allBookings = useMemo(
+    () => [...appState.bookings].sort(sortByStartDesc),
+    [appState.bookings],
+  );
+
+  const upcomingBookings = useMemo(() => {
+    return myBookings.filter((b) => b.status === 'confirmed' && new Date(b.startISO) > now);
+  }, [myBookings, now]);
+
+  const pastBookings = useMemo(() => {
+    return myBookings.filter(
+      (b) => b.status !== 'confirmed' || new Date(b.startISO) <= now,
+    );
+  }, [myBookings, now]);
+
+  const landingStats = useMemo(() => {
+    const upcoming = appState.bookings.filter(
+      (b) => b.status === 'confirmed' && new Date(b.startISO) > now,
+    );
+    return {
+      activeMembers: appState.users.length,
+      upcomingSessions: upcoming.length,
+      avgSessionCredits: upcoming.length
+        ? Math.round(
+            upcoming.reduce((s, b) => s + (b.pricing?.finalCredits || 0), 0) /
+              Math.max(upcoming.length, 1),
+          )
+        : 0,
+    };
+  }, [appState.bookings, appState.users.length, now]);
+
+  // Get busy equipment for a given time range
+  const getBusyEquipment = useCallback(
+    (startDate, endDate) => {
+      const busy = new Set();
+      for (const booking of appState.bookings) {
+        if (booking.status !== 'confirmed') continue;
+        const bStart = new Date(booking.startISO);
+        const bEnd = new Date(booking.endISO);
+        if (bStart < endDate && startDate < bEnd) {
+          (booking.equipment || []).forEach((e) => busy.add(e));
+        }
+      }
+      return busy;
+    },
+    [appState.bookings],
+  );
+
+  // Auth
+  function resetAuthState() {
+    setAuthPending(false);
+    setOtpSent(false);
+    setExpectedCode('');
+    setEmailOtpRequestId('');
+  }
+
+  function completeAuth(identityInput, authMode) {
+    const timestamp = now.toISOString();
+    const identity = {
+      ...identityInput,
+      timestamp,
+      method: authMethod,
+      name: identityInput.name?.trim() || '',
+      email: identityInput.email?.trim().toLowerCase() || '',
+      phone: normalizePhone(identityInput.phone || ''),
+      walletAddress: identityInput.walletAddress?.trim() || '',
+    };
+
+    const existingUser = findUserByIdentity(appState, identity);
+    const identityLabel =
+      identity.email || identity.phone || identity.walletAddress || 'that identity';
+
+    if (authMode === 'register' && existingUser) {
+      resetAuthState();
+      setNotice(
+        `We found an existing account for ${identityLabel}. Please sign in to continue.`,
+      );
+      return { redirect: '/signin', success: false };
+    }
+
+    if (authMode === 'signin' && !existingUser) {
+      resetAuthState();
+      setNotice(`No account found for ${identityLabel}. Please register first.`);
+      return { redirect: null, success: false };
+    }
+
+    const nextState = structuredClone(appState);
+    const outcome = upsertUserFromIdentity(nextState, identity);
+    nextState.currentUserId = outcome.user.id;
+    setAppState(nextState);
+    resetAuthState();
+
+    if (authMode === 'register') {
+      setRegistrationResult({
+        user: outcome.user,
+        method: authMethod,
+        created: outcome.created,
+      });
+      setNotice(`Welcome to Pelayo Wellness, ${outcome.user.name}!`);
+      return { redirect: '/welcome', success: true };
+    }
+
+    if (outcome.created) {
+      setNotice(`Welcome to Pelayo Wellness, ${outcome.user.name}!`);
+    } else {
+      setNotice(`Welcome back, ${outcome.user.name}.`);
+    }
+    return { redirect: '/home', success: true };
+  }
+
+  async function handleAuthSubmit(authForm, authMode) {
+    if (authPending) return {};
+
+    if (authMethod === 'google') {
+      const email = authForm.email.trim().toLowerCase();
+      if (!email.includes('@')) {
+        setNotice('Enter a valid Google email to continue.');
+        return {};
+      }
+      setAuthPending(true);
+      await new Promise((r) => setTimeout(r, 700));
+      return completeAuth(
+        { email, name: authForm.name.trim() || deriveNameFromEmail(email) },
+        authMode,
+      );
+    }
+
+    if (authMethod === 'ethereum') {
+      const walletAddress = authForm.walletAddress.trim();
+      if (!walletAddress || walletAddress.length < 8) {
+        setNotice('Connect a wallet or paste a valid Ethereum address.');
+        return {};
+      }
+      setAuthPending(true);
+      await new Promise((r) => setTimeout(r, 700));
+      return completeAuth(
+        { walletAddress, email: authForm.email, name: authForm.name || 'Pelayo Wallet Member' },
+        authMode,
+      );
+    }
+
+    if (authMethod === 'phone') {
+      const phone = normalizePhone(authForm.phone);
+      if (!phone || phone.length < 8) {
+        setNotice('Enter a valid phone number.');
+        return {};
+      }
+      if (!otpSent) {
+        const demoCode = generateDemoCode();
+        setExpectedCode(demoCode);
+        setOtpSent(true);
+        setNotice(`Verification code sent via SMS (demo): ${demoCode}`);
+        return {};
+      }
+      if (expectedCode && authForm.code.trim() !== expectedCode) {
+        setNotice('Invalid SMS code. Use the demo code shown above.');
+        return {};
+      }
+      if (!authForm.code || authForm.code.trim().length < 4) {
+        setNotice('Enter the 4–6 digit verification code.');
+        return {};
+      }
+      setAuthPending(true);
+      await new Promise((r) => setTimeout(r, 650));
+      return completeAuth(
+        { phone, name: authForm.name || 'Pelayo Member', email: authForm.email },
+        authMode,
+      );
+    }
+
+    if (authMethod === 'email') {
+      const email = authForm.email.trim().toLowerCase();
+      if (!email.includes('@')) {
+        setNotice('Enter a valid email address.');
+        return {};
+      }
+      if (!otpSent) {
+        setAuthPending(true);
+        try {
+          const response = await requestEmailOtp(email);
+          setOtpSent(true);
+          setExpectedCode('');
+          setEmailOtpRequestId(response.requestId || '');
+          setNotice(`Verification code sent to ${response.maskedEmail || email}.`);
+        } catch (error) {
+          setOtpSent(false);
+          setEmailOtpRequestId('');
+          setNotice(error?.message || 'Unable to send email code right now. Please try again.');
+        } finally {
+          setAuthPending(false);
+        }
+        return {};
+      }
+      if (!emailOtpRequestId) {
+        setOtpSent(false);
+        setNotice('Please request a new email code.');
+        return {};
+      }
+      const code = authForm.code.trim();
+      if (!code || code.length < 4) {
+        setNotice('Enter the 4–8 digit verification code.');
+        return {};
+      }
+      setAuthPending(true);
+      try {
+        await verifyEmailOtp({ email, code, requestId: emailOtpRequestId });
+        return completeAuth({ email, name: authForm.name || deriveNameFromEmail(email) }, authMode);
+      } catch (error) {
+        setAuthPending(false);
+        setNotice(error?.message || 'Invalid or expired email code. Request a new one.');
+        return {};
+      }
+    }
+
+    return {};
+  }
+
+  async function sendOtp(authForm) {
+    if (authMethod === 'phone') {
+      const phone = normalizePhone(authForm.phone);
+      if (!phone || phone.length < 8) {
+        setNotice('Enter a valid phone number first.');
+        return;
+      }
+      const demoCode = generateDemoCode();
+      setExpectedCode(demoCode);
+      setOtpSent(true);
+      setNotice(`Verification code sent via SMS (demo): ${demoCode}`);
+      return;
+    }
+    if (authMethod === 'email') {
+      const email = authForm.email.trim().toLowerCase();
+      if (!email.includes('@')) {
+        setNotice('Enter a valid email address first.');
+        return;
+      }
+      setAuthPending(true);
+      try {
+        const response = await requestEmailOtp(email);
+        setOtpSent(true);
+        setExpectedCode('');
+        setEmailOtpRequestId(response.requestId || '');
+        setNotice(`Verification code sent to ${response.maskedEmail || email}.`);
+      } catch (error) {
+        setOtpSent(false);
+        setEmailOtpRequestId('');
+        setNotice(error?.message || 'Unable to send email code right now.');
+      } finally {
+        setAuthPending(false);
+      }
+    }
+  }
+
+  async function connectWallet(authForm, setAuthForm, authMode) {
+    if (typeof window === 'undefined' || !window.ethereum) {
+      setNotice('No injected wallet detected. Install MetaMask / Rabby or paste an address manually.');
+      return;
+    }
+    try {
+      setAuthPending(true);
+      const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+      const first = accounts?.[0];
+      if (!first) {
+        setNotice('Wallet connected but no account was returned.');
+        return;
+      }
+      setAuthForm((prev) => ({ ...prev, walletAddress: first }));
+      setNotice(
+        authMode === 'register'
+          ? 'Wallet connected. Continue to create your Pelayo account.'
+          : 'Wallet connected. Continue to sign in.',
+      );
+    } catch (error) {
+      setNotice(`Wallet connection failed: ${error?.message || 'request rejected'}`);
+    } finally {
+      setAuthPending(false);
+    }
+  }
+
+  function signOut() {
+    setAppState((prev) => ({ ...prev, currentUserId: null, activeQuote: null }));
+    setNotice('Signed out.');
+  }
+
+  // Wallet
+  function handleTopUp(pkg) {
+    if (!currentUser) {
+      setNotice('Sign in first.');
+      return;
+    }
+    setAppState((prev) => {
+      const next = structuredClone(prev);
+      next.wallets[currentUser.id] = (next.wallets[currentUser.id] || 0) + pkg.credits;
+      addTransaction(next, {
+        userId: currentUser.id,
+        type: 'topup',
+        credits: pkg.credits,
+        cash: pkg.cash,
+        createdAt: now.toISOString(),
+        note: `${pkg.label} package`,
+      });
+      return next;
+    });
+    setNotice(`+${pkg.credits} credits added to your wallet.`);
+  }
+
+  // Booking
+  function buildQuote(bookingForm) {
+    if (!currentUser) {
+      setNotice('Sign in first.');
+      return null;
+    }
+    if (!bookingForm.date || !bookingForm.time) {
+      setNotice('Please choose date and time.');
+      return null;
+    }
+    const startDate = createLocalDate(bookingForm.date, bookingForm.time);
+    if (Number.isNaN(startDate.getTime())) {
+      setNotice('Invalid date/time.');
+      return null;
+    }
+    if (startDate <= now) {
+      setNotice('Bookings must start in the future.');
+      return null;
+    }
+
+    const quote = calculateQuote({
+      bookings: appState.bookings,
+      startDate,
+      durationMinutes: Number(bookingForm.durationMinutes),
+      now,
+      activeHold: null,
+    });
+
+    if (!quote.ok) {
+      setNotice(`${quote.reason}`);
+      return null;
+    }
+
+    const holdExpiresAt = new Date(now.getTime() + 15 * 60_000).toISOString();
+
+    const newQuote = {
+      id: `q-${Date.now()}`,
+      userId: currentUser.id,
+      startISO: quote.startDate.toISOString(),
+      endISO: quote.endDate.toISOString(),
+      durationMinutes: quote.durationMinutes,
+      workoutType: bookingForm.workoutType,
+      equipment: bookingForm.equipment,
+      equipmentMode: bookingForm.equipmentMode || 'exact',
+      selectedCategories: bookingForm.selectedCategories || [],
+      holdExpiresAt,
+      pricing: {
+        baseCredits: quote.baseCredits,
+        demandCount: quote.demandCount,
+        demandTier: quote.demandTier.name,
+        demandMultiplier: quote.demandTier.multiplier,
+        occupancyAtQuote: quote.occupancyAfter,
+        occupancyMultiplier: quote.occupancyMultiplier,
+        finalCredits: quote.finalCredits,
+      },
+    };
+
+    setAppState((prev) => ({ ...prev, activeQuote: newQuote }));
+    return newQuote;
+  }
+
+  function confirmQuote() {
+    if (!currentUser) {
+      setNotice('Sign in first.');
+      return false;
+    }
+    if (!activeQuote) {
+      setNotice('No active quote. Create one first.');
+      return false;
+    }
+    if (activeQuote.userId !== currentUser.id) {
+      setNotice('This quote belongs to another user.');
+      return false;
+    }
+    if (walletBalance < activeQuote.pricing.finalCredits) {
+      setNotice(
+        `Insufficient credits. Need ${activeQuote.pricing.finalCredits}, have ${walletBalance}. Top up first.`,
+      );
+      return false;
+    }
+
+    const recheck = calculateQuote({
+      bookings: appState.bookings,
+      startDate: new Date(activeQuote.startISO),
+      durationMinutes: activeQuote.durationMinutes,
+      now,
+      activeHold: null,
+    });
+
+    if (!recheck.ok) {
+      setNotice('Capacity changed. Please request a new quote.');
+      setAppState((prev) => ({ ...prev, activeQuote: null }));
+      return false;
+    }
+
+    setAppState((prev) => {
+      const next = structuredClone(prev);
+      const bookingId = `b${next.nextBookingId}`;
+      next.nextBookingId += 1;
+
+      next.bookings.push({
+        id: bookingId,
+        userId: currentUser.id,
+        startISO: activeQuote.startISO,
+        endISO: activeQuote.endISO,
+        durationMinutes: activeQuote.durationMinutes,
+        workoutType: activeQuote.workoutType,
+        equipment: activeQuote.equipment,
+        status: 'confirmed',
+        pricing: activeQuote.pricing,
+        createdAt: now.toISOString(),
+        source: 'user',
+      });
+
+      next.wallets[currentUser.id] =
+        (next.wallets[currentUser.id] || 0) - activeQuote.pricing.finalCredits;
+      addTransaction(next, {
+        userId: currentUser.id,
+        type: 'charge',
+        credits: -activeQuote.pricing.finalCredits,
+        createdAt: now.toISOString(),
+        note: `Booking ${bookingId}`,
+      });
+
+      next.activeQuote = null;
+      return next;
+    });
+
+    setNotice(`Booking confirmed — ${activeQuote.pricing.finalCredits} credits charged.`);
+    return true;
+  }
+
+  function cancelBooking(bookingId) {
+    if (!currentUser) return;
+
+    const booking = appState.bookings.find((b) => b.id === bookingId);
+    if (!booking) return;
+
+    const mins = minutesUntil(booking.startISO, now);
+
+    setAppState((prev) => {
+      const next = structuredClone(prev);
+      const b = next.bookings.find((x) => x.id === bookingId);
+      if (!b || b.status !== 'confirmed' || b.userId !== currentUser.id) return prev;
+
+      const autoRefundEligible = mins > 120;
+      const refundCredits = autoRefundEligible ? b.pricing.finalCredits : 0;
+
+      b.status = 'cancelled';
+      b.cancelledAt = now.toISOString();
+      b.refundCredits = refundCredits;
+      b.refundMode = autoRefundEligible ? 'auto_full_refund' : 'no_auto_refund';
+
+      if (refundCredits > 0) {
+        next.wallets[currentUser.id] = (next.wallets[currentUser.id] || 0) + refundCredits;
+        addTransaction(next, {
+          userId: currentUser.id,
+          type: 'refund',
+          credits: refundCredits,
+          createdAt: now.toISOString(),
+          note: `Auto refund for cancelled booking ${b.id}`,
+        });
+      }
+      return next;
+    });
+
+    if (mins > 120) {
+      setNotice('Booking cancelled. Full refund applied.');
+    } else {
+      setNotice('Booking cancelled within 2h of start — no automatic refund.');
+    }
+  }
+
+  // Admin
+  function applyAdminOverrideRefund(bookingId) {
+    setAppState((prev) => {
+      const next = structuredClone(prev);
+      const booking = next.bookings.find((b) => b.id === bookingId);
+      if (!booking || booking.status !== 'cancelled') return prev;
+
+      const alreadyRefunded = booking.refundCredits || 0;
+      const remaining = booking.pricing.finalCredits - alreadyRefunded;
+      if (remaining <= 0) return prev;
+
+      next.wallets[booking.userId] = (next.wallets[booking.userId] || 0) + remaining;
+      booking.refundCredits = alreadyRefunded + remaining;
+      booking.refundMode = 'admin_override_full_refund';
+      booking.adminOverrideAt = now.toISOString();
+
+      addTransaction(next, {
+        userId: booking.userId,
+        type: 'refund',
+        credits: remaining,
+        createdAt: now.toISOString(),
+        note: `Admin override refund for ${booking.id}`,
+      });
+      return next;
+    });
+    setNotice('Admin override applied — remaining credits refunded.');
+  }
+
+  function resetDemo() {
+    const next = resetAppState();
+    setAppState(next);
+    setNotice('Demo data reset.');
+  }
+
+  function setClockOffset(value) {
+    const parsed = Number(value);
+    if (Number.isNaN(parsed)) return;
+    setAppState((prev) => ({ ...prev, clockOffsetMinutes: parsed }));
+  }
+
+  // Compute slot availability for time grid
+  const getSlotInfo = useCallback(
+    (dateStr, hour) => {
+      const start = createLocalDate(dateStr, `${String(hour).padStart(2, '0')}:00`);
+      const end = new Date(start.getTime() + 60 * 60_000);
+
+      const occupancy = getOccupancyByBlock({
+        bookings: appState.bookings,
+        startDate: start,
+        endDate: end,
+        now,
+        hold: activeQuote,
+        includeHold: true,
+      });
+
+      const maxExisting = Math.max(...occupancy.map((b) => b.existingCount));
+      const nextOccupancy = Math.min(5, maxExisting + 1);
+      const occupancyMultiplier = getOccupancyMultiplier(nextOccupancy);
+
+      const demandCount = getDemandCount({
+        bookings: appState.bookings,
+        targetStartDate: start,
+        targetEndDate: end,
+        now,
+      });
+      const demandTier = getDemandTier(demandCount);
+      const estCredits = Math.round(
+        getBaseCredits(60) * demandTier.multiplier * occupancyMultiplier,
+      );
+
+      return {
+        hour,
+        maxExisting,
+        nextOccupancy,
+        occupancyMultiplier,
+        demandTier,
+        demandCount,
+        estCredits,
+        isFull: maxExisting >= 5,
+      };
+    },
+    [appState.bookings, now, activeQuote],
+  );
+
+  const value = {
+    appState,
+    setAppState,
+    now,
+    notice,
+    setNotice,
+    currentUser,
+    walletBalance,
+    activeQuote,
+    quoteSecondsLeft,
+    myBookings,
+    upcomingBookings,
+    pastBookings,
+    allBookings,
+    landingStats,
+
+    // Auth
+    authMethod,
+    setAuthMethod,
+    authPending,
+    otpSent,
+    setOtpSent,
+    resetAuthState,
+    handleAuthSubmit,
+    sendOtp,
+    connectWallet,
+    signOut,
+    registrationResult,
+    setRegistrationResult,
+
+    // Booking
+    buildQuote,
+    confirmQuote,
+    cancelBooking,
+    getBusyEquipment,
+    getSlotInfo,
+
+    // Wallet
+    handleTopUp,
+
+    // Admin
+    applyAdminOverrideRefund,
+    resetDemo,
+    setClockOffset,
+  };
+
+  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
+}

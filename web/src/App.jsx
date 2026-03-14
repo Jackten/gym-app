@@ -22,7 +22,7 @@ const AUTH_METHODS = [
   {
     id: 'ethereum',
     title: 'Ethereum',
-    subtitle: 'Connect wallet and sign-in with address',
+    subtitle: 'Connect wallet and create/sign-in with address',
   },
   {
     id: 'phone',
@@ -35,6 +35,26 @@ const AUTH_METHODS = [
     subtitle: 'Magic-code sign-in by email',
   },
 ];
+
+const AUTH_VIEW_COPY = {
+  signin: {
+    eyebrow: 'Member Sign-in',
+    title: 'Welcome back to Pelayo Wellness',
+    blurb: 'Use your preferred method to access an existing account and continue booking.',
+    ctaLabel: 'Continue',
+    modeCopy: 'Sign in',
+    switchText: 'Need a new account?',
+  },
+  register: {
+    eyebrow: 'Create account',
+    title: 'Create your Pelayo Wellness account',
+    blurb:
+      'Start a new account with the same authentication options. Real-world providers are surfaced, with simulation for backend checks.',
+    ctaLabel: 'Create account',
+    modeCopy: 'Register',
+    switchText: 'Already have an account?',
+  },
+};
 
 const EQUIPMENT_TAXONOMY = [
   {
@@ -101,6 +121,14 @@ const LEGACY_EQUIPMENT_LABELS = {
 };
 
 const QUICK_TIME_SLOTS = ['06:00', '07:00', '08:00', '12:00', '17:00', '18:00', '19:00', '20:00'];
+
+const EMPTY_AUTH_FORM = {
+  name: '',
+  email: '',
+  phone: '',
+  code: '',
+  walletAddress: '',
+};
 
 function formatDateTime(iso) {
   return new Date(iso).toLocaleString([], {
@@ -187,6 +215,19 @@ function addAuthProvider(user, method) {
   }
 }
 
+function findUserByIdentity(state, identity) {
+  const normalizedEmail = identity.email?.trim().toLowerCase() || '';
+  const normalizedPhone = normalizePhone(identity.phone || '');
+  const normalizedWallet = (identity.walletAddress || '').trim().toLowerCase();
+
+  return state.users.find((candidate) => {
+    if (normalizedEmail && candidate.email?.toLowerCase() === normalizedEmail) return true;
+    if (normalizedPhone && normalizePhone(candidate.phone || '') === normalizedPhone) return true;
+    if (normalizedWallet && candidate.walletAddress?.toLowerCase() === normalizedWallet) return true;
+    return false;
+  });
+}
+
 function upsertUserFromIdentity(state, identity) {
   const normalizedEmail = identity.email?.trim().toLowerCase() || '';
   const normalizedPhone = normalizePhone(identity.phone || '');
@@ -226,24 +267,31 @@ function upsertUserFromIdentity(state, identity) {
   return { user: newUser, created: true };
 }
 
+function abbreviateWallet(address) {
+  if (!address) return '';
+  const trimmed = address.trim();
+  if (trimmed.length <= 14) return trimmed;
+  return `${trimmed.slice(0, 7)}...${trimmed.slice(-4)}`;
+}
+
+function generateDemoCode() {
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
+
 export default function App() {
   const [appState, setAppState] = useState(() => loadAppState());
   const [nowMs, setNowMs] = useState(Date.now());
   const [notice, setNotice] = useState('');
 
   const [view, setView] = useState('landing');
-  const [authIntent, setAuthIntent] = useState('book');
+  const [authMode, setAuthMode] = useState('signin');
   const [authMethod, setAuthMethod] = useState('google');
   const [authPending, setAuthPending] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
+  const [expectedCode, setExpectedCode] = useState('');
+  const [registrationResult, setRegistrationResult] = useState(null);
 
-  const [authForm, setAuthForm] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    code: '',
-    walletAddress: '',
-  });
+  const [authForm, setAuthForm] = useState(EMPTY_AUTH_FORM);
 
   const [bookingForm, setBookingForm] = useState(() => ({
     date: formatDateInput(startOfTomorrow()),
@@ -278,10 +326,14 @@ export default function App() {
   }, [now]);
 
   useEffect(() => {
-    if (currentUser) {
+    if (!currentUser) return;
+
+    if (view === 'account-ready') return;
+
+    if (view === 'signin' || view === 'register') {
       setView('booking');
     }
-  }, [currentUser]);
+  }, [currentUser, view]);
 
   const walletBalance = currentUser ? appState.wallets[currentUser.id] || 0 : 0;
 
@@ -374,13 +426,26 @@ export default function App() {
     });
   }
 
-  function startAuth(intent) {
-    setAuthIntent(intent);
+  function startAuthFlow(mode) {
+    setAuthMode(mode);
     setAuthMethod('google');
     setAuthPending(false);
     setOtpSent(false);
-    setAuthForm({ name: '', email: '', phone: '', code: '', walletAddress: '' });
-    setView('auth');
+    setExpectedCode('');
+    setAuthForm(EMPTY_AUTH_FORM);
+    setRegistrationResult(null);
+    setView(mode);
+  }
+
+  function switchAuthMode(mode) {
+    setAuthMode(mode);
+    setView(mode);
+    setOtpSent(false);
+    setExpectedCode('');
+    setAuthForm((prev) => ({
+      ...prev,
+      code: '',
+    }));
   }
 
   async function connectWallet() {
@@ -397,8 +462,13 @@ export default function App() {
         setNotice('Wallet connected but no account was returned.');
         return;
       }
+
       setAuthForm((prev) => ({ ...prev, walletAddress: first }));
-      setNotice('Wallet connected. Continue to finish sign-in.');
+      setNotice(
+        authMode === 'register'
+          ? 'Wallet connected. Continue to create your Pelayo account.'
+          : 'Wallet connected. Continue to sign in.',
+      );
     } catch (error) {
       setNotice(`Wallet connection failed: ${error?.message || 'request rejected'}`);
     } finally {
@@ -413,7 +483,7 @@ export default function App() {
         setNotice('Enter a valid phone number first.');
         return;
       }
-      setAuthForm((prev) => ({ ...prev, phone }));
+      setAuthForm((prev) => ({ ...prev, phone, code: '' }));
     }
 
     if (channel === 'email') {
@@ -422,11 +492,15 @@ export default function App() {
         setNotice('Enter a valid email address first.');
         return;
       }
-      setAuthForm((prev) => ({ ...prev, email }));
+      setAuthForm((prev) => ({ ...prev, email, code: '' }));
     }
 
+    const demoCode = generateDemoCode();
+    setExpectedCode(demoCode);
     setOtpSent(true);
-    setNotice(`Verification code sent via ${channel === 'phone' ? 'SMS' : 'email'} (demo simulation).`);
+    setNotice(
+      `Verification code sent via ${channel === 'phone' ? 'SMS' : 'email'} (demo simulation): ${demoCode}. Enter it to continue.`,
+    );
   }
 
   function completeAuth(identityInput) {
@@ -441,6 +515,23 @@ export default function App() {
       walletAddress: identityInput.walletAddress?.trim() || '',
     };
 
+    const existingUser = findUserByIdentity(appState, identity);
+
+    if (authMode === 'register' && existingUser) {
+      setAuthPending(false);
+      setOtpSent(false);
+      setExpectedCode('');
+      setNotice(
+        authMode === 'register'
+          ? `We found an existing account for ${identity.email || identity.phone || identity.walletAddress}. Please sign in to continue.`
+          : 'Account not found.',
+      );
+      setView('signin');
+      setAuthMode('signin');
+      setAuthMethod(authMethod);
+      return;
+    }
+
     let outcome = { created: false, user: null };
 
     setAppState((prev) => {
@@ -453,16 +544,25 @@ export default function App() {
 
     setAuthPending(false);
     setOtpSent(false);
+    setExpectedCode('');
+
+    if (authMode === 'register') {
+      setRegistrationResult({
+        user: outcome.user,
+        method: authMethod,
+        created: outcome.created,
+      });
+      setNotice(`Welcome to Pelayo Wellness, ${outcome.user.name}. Your account is ready to use.`);
+      setView('account-ready');
+      return;
+    }
+
     setView('booking');
 
     if (outcome.created) {
-      setNotice(`Welcome to Pelayo Wellness, ${outcome.user.name}. Your account is ready.`);
+      setNotice(`Welcome to Pelayo Wellness, ${outcome.user.name}. Your new account is ready.`);
     } else {
       setNotice(`Welcome back, ${outcome.user.name}.`);
-    }
-
-    if (authIntent === 'register') {
-      setNotice((prev) => `${prev} Registration completed — you can now book your first session.`);
     }
   }
 
@@ -475,13 +575,14 @@ export default function App() {
         setNotice('Enter a valid Google email to continue.');
         return;
       }
+
       setAuthPending(true);
       setTimeout(() => {
         completeAuth({
           email,
           name: authForm.name.trim() || deriveNameFromEmail(email),
         });
-      }, 800);
+      }, 700);
       return;
     }
 
@@ -515,6 +616,11 @@ export default function App() {
         return;
       }
 
+      if (expectedCode && authForm.code.trim() !== expectedCode) {
+        setNotice('Invalid SMS code. Use the demo code shown above.');
+        return;
+      }
+
       if (!authForm.code || authForm.code.trim().length < 4) {
         setNotice('Enter the 4–6 digit verification code.');
         return;
@@ -543,6 +649,11 @@ export default function App() {
         return;
       }
 
+      if (expectedCode && authForm.code.trim() !== expectedCode) {
+        setNotice('Invalid email code. Use the demo code shown above.');
+        return;
+      }
+
       if (!authForm.code || authForm.code.trim().length < 4) {
         setNotice('Enter the 4–6 digit verification code.');
         return;
@@ -556,6 +667,11 @@ export default function App() {
         });
       }, 650);
     }
+  }
+
+  function proceedToBooking() {
+    setView('booking');
+    setNotice('Great — you can now book your first session.');
   }
 
   function signOut() {
@@ -575,7 +691,7 @@ export default function App() {
   function handleTopUp(pkg) {
     if (!currentUser) {
       setNotice('Sign in first.');
-      setView('auth');
+      setView('signin');
       return;
     }
 
@@ -599,7 +715,7 @@ export default function App() {
   function buildQuote() {
     if (!currentUser) {
       setNotice('Sign in first.');
-      setView('auth');
+      setView('signin');
       return;
     }
 
@@ -682,9 +798,7 @@ export default function App() {
     }
 
     if (walletBalance < activeQuote.pricing.finalCredits) {
-      setNotice(
-        `Insufficient credits. Need ${activeQuote.pricing.finalCredits}, have ${walletBalance}. Buy a package first.`,
-      );
+      setNotice(`Insufficient credits. Need ${activeQuote.pricing.finalCredits}, have ${walletBalance}. Buy a package first.`);
       return;
     }
 
@@ -823,7 +937,9 @@ export default function App() {
     setAppState((prev) => ({ ...prev, clockOffsetMinutes: parsed }));
   }
 
-  const bookingCtaLabel = authIntent === 'register' ? 'Create account' : 'Sign in to continue';
+  const authCopy = AUTH_VIEW_COPY[authMode];
+  const authActionLabel = authMode === 'register' ? `Create account` : `Continue to ${authMode === 'signin' ? 'account' : 'booking'}`;
+  const registrationReadyMethodLabel = registrationResult ? toTitleCase(registrationResult.method) : '';
 
   return (
     <div className="app-shell">
@@ -845,7 +961,7 @@ export default function App() {
               <button onClick={signOut}>Sign out</button>
             </div>
           ) : (
-            <button onClick={() => startAuth('book')}>Sign in</button>
+            <button onClick={() => startAuthFlow('signin')}>Sign in</button>
           )}
         </header>
 
@@ -860,10 +976,10 @@ export default function App() {
                 Reserve your slot, plan equipment in advance, and lock transparent demand-based pricing before you arrive.
               </p>
               <div className="hero-actions">
-                <button className="btn-primary" onClick={() => startAuth('book')}>
+                <button className="btn-primary" onClick={() => startAuthFlow('signin')}>
                   Book a Session
                 </button>
-                <button className="btn-secondary" onClick={() => startAuth('register')}>
+                <button className="btn-secondary" onClick={() => startAuthFlow('register')}>
                   Register
                 </button>
               </div>
@@ -886,16 +1002,13 @@ export default function App() {
           </section>
         )}
 
-        {view === 'auth' && (
+        {(view === 'signin' || view === 'register') && (
           <section className="card auth-card">
             <div className="auth-header">
               <div>
-                <p className="eyebrow">{authIntent === 'register' ? 'Registration' : 'Secure Sign-in'}</p>
-                <h2>{authIntent === 'register' ? 'Create your Pelayo Wellness account' : 'Book a session'}</h2>
-                <p>
-                  Choose an authentication method. Provider integrations are structured for production wiring while remaining
-                  static-host safe for GitHub Pages.
-                </p>
+                <p className="eyebrow">{authCopy.eyebrow}</p>
+                <h2>{authCopy.title}</h2>
+                <p>{authCopy.blurb}</p>
               </div>
               <button onClick={() => setView('landing')}>Back</button>
             </div>
@@ -908,6 +1021,7 @@ export default function App() {
                   onClick={() => {
                     setAuthMethod(method.id);
                     setOtpSent(false);
+                    setExpectedCode('');
                     setAuthForm((prev) => ({ ...prev, code: '' }));
                   }}
                 >
@@ -919,7 +1033,7 @@ export default function App() {
 
             <div className="auth-form">
               <label>
-                Full name (optional)
+                Full name {authMode === 'register' ? '(for account profile)' : '(optional)'}
                 <input
                   type="text"
                   value={authForm.name}
@@ -929,15 +1043,22 @@ export default function App() {
               </label>
 
               {authMethod === 'google' && (
-                <label>
-                  Google email
-                  <input
-                    type="email"
-                    value={authForm.email}
-                    onChange={(e) => setAuthForm((prev) => ({ ...prev, email: e.target.value }))}
-                    placeholder="you@gmail.com"
-                  />
-                </label>
+                <>
+                  <label>
+                    Google email
+                    <input
+                      type="email"
+                      value={authForm.email}
+                      onChange={(e) => setAuthForm((prev) => ({ ...prev, email: e.target.value }))}
+                      placeholder="you@gmail.com"
+                    />
+                  </label>
+                  <p className="auth-helper muted">
+                    {authMode === 'signin'
+                      ? 'Google flow checks for an existing account and continues if found. In this static version this is validated locally.'
+                      : 'Google account creation creates a fresh Pelayo account only if the email is not already linked locally.'}
+                  </p>
+                </>
               )}
 
               {authMethod === 'ethereum' && (
@@ -955,6 +1076,9 @@ export default function App() {
                     <button onClick={connectWallet} disabled={authPending}>
                       {authPending ? 'Connecting wallet…' : 'Connect Wallet'}
                     </button>
+                    {authForm.walletAddress ? (
+                      <span className="auth-helper muted">Connected: {abbreviateWallet(authForm.walletAddress)}</span>
+                    ) : null}
                   </div>
                   <label>
                     Recovery email (recommended)
@@ -965,6 +1089,11 @@ export default function App() {
                       placeholder="you@example.com"
                     />
                   </label>
+                  <p className="auth-helper muted">
+                    {authMode === 'register'
+                      ? 'Signing with Ethereum creates a new wallet-linked account and links the recovery email to the profile.'
+                      : 'Signing with Ethereum links to an existing wallet account if one exists.'}
+                  </p>
                 </>
               )}
 
@@ -1032,9 +1161,31 @@ export default function App() {
                   <button onClick={() => sendOtp(authMethod)}>{`Send ${authMethod === 'phone' ? 'SMS' : 'Email'} Code`}</button>
                 )}
                 <button className="btn-primary" disabled={authPending} onClick={handleAuthSubmit}>
-                  {authPending ? 'Processing…' : bookingCtaLabel}
+                  {authPending ? 'Processing…' : authActionLabel}
+                </button>
+                <button className="btn-secondary" onClick={() => switchAuthMode(authMode === 'signin' ? 'register' : 'signin')}>
+                  {authCopy.switchText}
                 </button>
               </div>
+            </div>
+          </section>
+        )}
+
+        {view === 'account-ready' && registrationResult && (
+          <section className="card">
+            <h2>Account ready</h2>
+            <p className="muted">
+              {registrationResult.user.name}, your Pelayo Wellness account has been created via{' '}
+              <strong>{registrationReadyMethodLabel}</strong> and is now active.
+            </p>
+            <p className="muted">
+              Next step: create your first booking to secure a training slot and start using your credits.
+            </p>
+            <div className="row action-row">
+              <button className="btn-primary" onClick={proceedToBooking}>
+                Continue to booking
+              </button>
+              <button onClick={() => setView('landing')}>Return to home</button>
             </div>
           </section>
         )}
@@ -1109,10 +1260,7 @@ export default function App() {
 
                 <label>
                   Workout type
-                  <select
-                    value={bookingForm.workoutType}
-                    onChange={(e) => updateBookingForm({ workoutType: e.target.value })}
-                  >
+                  <select value={bookingForm.workoutType} onChange={(e) => updateBookingForm({ workoutType: e.target.value })}>
                     {WORKOUT_TYPES.map((type) => (
                       <option key={type} value={type}>
                         {toTitleCase(type)}

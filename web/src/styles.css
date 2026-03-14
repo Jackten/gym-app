@@ -229,6 +229,11 @@ h5 {
   gap: 0.8rem;
 }
 
+.auth-helper {
+  margin: 0;
+  font-size: 0.8rem;
+}
+
 label {
   display: flex;
   flex-direction: column;

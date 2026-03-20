@@ -454,30 +454,40 @@ export function AppProvider({ children }) {
     return newQuote;
   }
 
-  function confirmQuote() {
+  function confirmQuote(options = {}) {
+    const {
+      quoteOverride = null,
+      skipWalletCheck = false,
+      skipWalletCharge = false,
+      source = 'user',
+      bookingNote,
+    } = options;
+
+    const quoteToConfirm = quoteOverride || activeQuote;
+
     if (!currentUser) {
       setNotice('Sign in first.');
       return false;
     }
-    if (!activeQuote) {
+    if (!quoteToConfirm) {
       setNotice('No active quote. Create one first.');
       return false;
     }
-    if (activeQuote.userId !== currentUser.id) {
+    if (quoteToConfirm.userId !== currentUser.id) {
       setNotice('This quote belongs to another user.');
       return false;
     }
-    if (walletBalance < activeQuote.pricing.finalCredits) {
+    if (!skipWalletCheck && walletBalance < quoteToConfirm.pricing.finalCredits) {
       setNotice(
-        `Insufficient credits. Need ${activeQuote.pricing.finalCredits}, have ${walletBalance}. Top up first.`,
+        `Insufficient credits. Need ${quoteToConfirm.pricing.finalCredits}, have ${walletBalance}. Top up first.`,
       );
       return false;
     }
 
     const recheck = calculateQuote({
       bookings: appState.bookings,
-      startDate: new Date(activeQuote.startISO),
-      durationMinutes: activeQuote.durationMinutes,
+      startDate: new Date(quoteToConfirm.startISO),
+      durationMinutes: quoteToConfirm.durationMinutes,
       now,
       activeHold: null,
     });
@@ -496,32 +506,40 @@ export function AppProvider({ children }) {
       next.bookings.push({
         id: bookingId,
         userId: currentUser.id,
-        startISO: activeQuote.startISO,
-        endISO: activeQuote.endISO,
-        durationMinutes: activeQuote.durationMinutes,
-        workoutType: activeQuote.workoutType,
-        equipment: activeQuote.equipment,
+        startISO: quoteToConfirm.startISO,
+        endISO: quoteToConfirm.endISO,
+        durationMinutes: quoteToConfirm.durationMinutes,
+        workoutType: quoteToConfirm.workoutType,
+        equipment: quoteToConfirm.equipment,
         status: 'confirmed',
-        pricing: activeQuote.pricing,
+        pricing: quoteToConfirm.pricing,
         createdAt: now.toISOString(),
-        source: 'user',
+        source,
+        bookingNote,
       });
 
-      next.wallets[currentUser.id] =
-        (next.wallets[currentUser.id] || 0) - activeQuote.pricing.finalCredits;
-      addTransaction(next, {
-        userId: currentUser.id,
-        type: 'charge',
-        credits: -activeQuote.pricing.finalCredits,
-        createdAt: now.toISOString(),
-        note: `Booking ${bookingId}`,
-      });
+      if (!skipWalletCharge) {
+        next.wallets[currentUser.id] =
+          (next.wallets[currentUser.id] || 0) - quoteToConfirm.pricing.finalCredits;
+        addTransaction(next, {
+          userId: currentUser.id,
+          type: 'charge',
+          credits: -quoteToConfirm.pricing.finalCredits,
+          createdAt: now.toISOString(),
+          note: `Booking ${bookingId}`,
+        });
+      }
 
       next.activeQuote = null;
       return next;
     });
 
-    setNotice(`Booking confirmed — ${activeQuote.pricing.finalCredits} credits charged.`);
+    if (skipWalletCharge) {
+      setNotice('Booking confirmed — payment is deferred in this prototype.');
+    } else {
+      setNotice(`Booking confirmed — ${quoteToConfirm.pricing.finalCredits} credits charged.`);
+    }
+
     return true;
   }
 

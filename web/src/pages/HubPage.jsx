@@ -21,10 +21,10 @@ export default function HubPage() {
           <p className="eyebrow">Ready to train?</p>
           <h2>Book a Session</h2>
           <p className="muted">
-            Pick your time, plan equipment, and lock your price — all in under a minute.
+            Tell the scheduling agent what you need, review 3 smart options, and lock a slot fast.
           </p>
           <button className="btn-primary btn-lg" onClick={() => navigate('/session')}>
-            Start Booking →
+            Start Agent Booking →
           </button>
         </div>
         <div className="hub-hero-visual">

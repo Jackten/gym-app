@@ -8,6 +8,7 @@ import LandingPage from './pages/LandingPage';
 import AuthPage from './pages/AuthPage';
 import HubPage from './pages/HubPage';
 import SessionPage from './pages/SessionPage';
+import CalendarPage from './pages/CalendarPage';
 import WalletPage from './pages/WalletPage';
 import TopUpPage from './pages/TopUpPage';
 import BookingsPage from './pages/BookingsPage';
@@ -140,7 +141,7 @@ export default function App() {
               path="/calendar"
               element={
                 <RequireAuth>
-                  <SessionPage />
+                  <CalendarPage />
                 </RequireAuth>
               }
             />

@@ -7,6 +7,7 @@ import SlotCardList from '../features/calendar-scheduler/components/SlotCardList
 import EquipmentSelector from '../features/calendar-scheduler/components/EquipmentSelector';
 import RecurrencePatternPanel from '../features/calendar-scheduler/components/RecurrencePatternPanel';
 import RecurrenceReview from '../features/calendar-scheduler/components/RecurrenceReview';
+import { EQUIPMENT_FLOW_CATEGORIES } from '../features/calendar-scheduler/config';
 import {
   getTwoWeekRange,
   generateRecurringSessions,
@@ -27,10 +28,10 @@ export default function SessionPage() {
   const navigate = useNavigate();
   const twoWeekDays = useMemo(() => getTwoWeekRange(now), [now]);
   const [selectedDay, setSelectedDay] = useState(twoWeekDays[0]?.id || formatDateInput(now));
-  const [selectedSlot, setSelectedSlot] = useState(null);
+  const [selectedSlots, setSelectedSlots] = useState([]);
   const [step, setStep] = useState('slot');
 
-  const [equipmentSelection, setEquipmentSelection] = useState({ category: 'dont-know', items: [] });
+  const [equipmentSelection, setEquipmentSelection] = useState({ categories: ['dont-know'], items: [] });
   const [equipmentNote, setEquipmentNote] = useState('');
 
   const [recurrence, setRecurrence] = useState({
@@ -47,18 +48,65 @@ export default function SessionPage() {
   const slots = useMemo(() => getSlotAvailabilityForDay(selectedDay), [selectedDay, getSlotAvailabilityForDay]);
 
   const equipmentConflicts = useMemo(() => {
-    if (!selectedSlot) return [];
-    const start = createLocalDate(selectedDay, selectedSlot.id);
-    const end = new Date(start.getTime() + 60 * 60_000);
-    const busy = getBusyEquipment(start, end);
-    return equipmentSelection.items.filter((item) => busy.has(item));
-  }, [selectedSlot, selectedDay, getBusyEquipment, equipmentSelection.items]);
+    if (selectedSlots.length === 0) return [];
+
+    const busyAcrossSelectedSlots = selectedSlots.reduce((busySet, slot) => {
+      const start = createLocalDate(selectedDay, slot.id);
+      const end = new Date(start.getTime() + 60 * 60_000);
+      const busy = getBusyEquipment(start, end);
+      busy.forEach((item) => busySet.add(item));
+      return busySet;
+    }, new Set());
+
+    return equipmentSelection.items.filter((item) => busyAcrossSelectedSlots.has(item));
+  }, [selectedSlots, selectedDay, getBusyEquipment, equipmentSelection.items]);
 
   if (!currentUser) return null;
 
   function handleSelectDay(dayId) {
     setSelectedDay(dayId);
-    setSelectedSlot(null);
+    setSelectedSlots([]);
+  }
+
+  function handleToggleSlot(slot) {
+    setSelectedSlots((prev) => {
+      const exists = prev.some((candidate) => candidate.id === slot.id);
+      if (exists) {
+        return prev.filter((candidate) => candidate.id !== slot.id);
+      }
+      return [...prev, slot].sort((a, b) => a.id.localeCompare(b.id));
+    });
+  }
+
+  function handleToggleCategory(categoryId) {
+    setEquipmentSelection((prev) => {
+      const categories = prev.categories || [];
+
+      if (categoryId === 'dont-know') {
+        return { categories: ['dont-know'], items: [] };
+      }
+
+      const exists = categories.includes(categoryId);
+      const withoutDefault = categories.filter((category) => category !== 'dont-know');
+      const nextCategories = exists
+        ? withoutDefault.filter((category) => category !== categoryId)
+        : [...withoutDefault, categoryId];
+
+      if (nextCategories.length === 0) {
+        return { categories: ['dont-know'], items: [] };
+      }
+
+      const allowedItems = new Set(
+        EQUIPMENT_FLOW_CATEGORIES
+          .filter((category) => nextCategories.includes(category.id))
+          .flatMap((category) => category.items.map((item) => item.id)),
+      );
+
+      return {
+        categories: nextCategories,
+        items: prev.items.filter((item) => allowedItems.has(item)),
+      };
+    });
   }
 
   function handleToggleEquipment(itemId) {
@@ -99,20 +147,20 @@ export default function SessionPage() {
   }
 
   function proceedToEquipment() {
-    if (!selectedSlot) {
-      setNotice('Select a slot card first.');
+    if (selectedSlots.length === 0) {
+      setNotice('Select at least one slot card first.');
       return;
     }
     setStep('equipment');
   }
 
   function proceedToRecurrence() {
-    if (!selectedSlot) return;
+    if (selectedSlots.length === 0) return;
     setStep('recurrence');
   }
 
   function generateSeriesReview() {
-    if (!selectedSlot) return;
+    if (selectedSlots.length === 0) return;
 
     const slotDate = createLocalDate(selectedDay, '00:00');
     const selectedWeekday = slotDate.getDay();
@@ -122,14 +170,28 @@ export default function SessionPage() {
         ? recurrence.weekdays
         : [selectedWeekday];
 
-    const sessions = generateRecurringSessions({
-      selectedDate: selectedDay,
-      time: selectedSlot.id,
-      durationMinutes: 60,
-      recurrence: {
-        ...recurrence,
-        weekdays: effectiveWeekdays,
-      },
+    const uniqueSessions = new Map();
+
+    selectedSlots.forEach((slot) => {
+      const sessionsForSlot = generateRecurringSessions({
+        selectedDate: selectedDay,
+        time: slot.id,
+        durationMinutes: 60,
+        recurrence: {
+          ...recurrence,
+          weekdays: effectiveWeekdays,
+        },
+      });
+
+      sessionsForSlot.forEach((session) => {
+        uniqueSessions.set(`${session.dateInput}-${session.timeInput}`, session);
+      });
+    });
+
+    const sessions = [...uniqueSessions.values()].sort((a, b) => {
+      const aKey = `${a.dateInput}T${a.timeInput}`;
+      const bKey = `${b.dateInput}T${b.timeInput}`;
+      return aKey.localeCompare(bKey);
     });
 
     if (sessions.length === 0) {
@@ -157,13 +219,23 @@ export default function SessionPage() {
     <div className="page-session">
       <section className="card">
         <p className="eyebrow">Manual calendar scheduler</p>
-        <h2>Book your session</h2>
-        <p className="muted section-desc">Select a day, tap a slot card, and confirm. No chatbot.</p>
+        <h2>Book a session</h2>
+        <p className="muted section-desc">Select one or more slot cards, then confirm your booking in one action.</p>
 
         <TwoWeekCalendar days={twoWeekDays} selectedDay={selectedDay} onSelectDay={handleSelectDay} />
 
         <h4 style={{ marginTop: '1rem' }}>Available times</h4>
-        <SlotCardList slots={slots} selectedSlot={selectedSlot} onSelect={setSelectedSlot} />
+        <SlotCardList
+          slots={slots}
+          selectedSlotIds={selectedSlots.map((slot) => slot.id)}
+          onToggle={handleToggleSlot}
+        />
+
+        {selectedSlots.length > 0 && (
+          <p className="muted" style={{ margin: '0.65rem 0 0' }}>
+            Selected slots: {selectedSlots.map((slot) => slot.label).join(', ')}
+          </p>
+        )}
 
         {step === 'slot' && (
           <div className="session-step-actions compact">
@@ -175,11 +247,11 @@ export default function SessionPage() {
       {step !== 'slot' && (
         <section className="card">
           <h3>Equipment (optional)</h3>
-          <p className="muted">Category first, exact picks optional. Conflicts are advisory only.</p>
+          <p className="muted">Pick one or more equipment categories. Exact equipment picks are optional.</p>
 
           <EquipmentSelector
             selection={equipmentSelection}
-            onChangeCategory={(category) => setEquipmentSelection({ category, items: [] })}
+            onToggleCategory={handleToggleCategory}
             onToggleItem={handleToggleEquipment}
           />
 
@@ -194,7 +266,7 @@ export default function SessionPage() {
 
           {equipmentConflicts.length > 0 && (
             <p className="equipment-conflict-note">
-              Heads up: {equipmentConflicts.map((item) => equipmentLabel(item)).join(', ')} is already reserved in this slot.
+              Heads up: {equipmentConflicts.map((item) => equipmentLabel(item)).join(', ')} is already reserved in at least one selected slot.
               You can still book this time.
             </p>
           )}

@@ -4,11 +4,14 @@ Date: 2026-03-21
 
 ## Architecture overview
 
-### Core page
+### Core pages
+- `web/src/pages/CalendarPage.jsx`
+  - New view-only 2-week calendar surface for browsing schedule and availability.
 - `web/src/pages/SessionPage.jsx`
-  - Rebuilt as calendar-first manual scheduler.
+  - Dedicated booking flow.
   - Multi-step local flow:
     - `slot` → `equipment` → `recurrence` → `review`
+  - Supports multi-slot selection in one booking action.
 
 ### Feature boundary
 - `web/src/features/calendar-scheduler/config.js`
@@ -39,7 +42,8 @@ Date: 2026-03-21
 ### Navigation/routing
 - `web/src/App.jsx`
   - Removed `/welcome` and `/session/confirmed` from active flow.
-  - Added `/calendar` alias route to scheduler page.
+  - `/calendar` now routes to dedicated `CalendarPage` (view calendar).
+  - `/session` remains dedicated booking flow (book a session).
 - `web/src/components/BottomNav.jsx`
   - Session nav item renamed to **Calendar** and points to `/calendar`.
 
@@ -71,6 +75,7 @@ Date: 2026-03-21
   workoutType: 'general-training',
   equipment: string[],
   equipmentCategory,
+  equipmentCategories,
   status: 'confirmed',
   pricing: { finalCredits: 0, ... },
   source: 'calendar-v2',

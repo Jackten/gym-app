@@ -20,15 +20,17 @@ Calendar-first manual scheduling is now the default booking surface.
   1. **View calendar** (primary)
   2. **Book a session** (secondary)
 
-### Scheduler
-- Default scheduler route: `/session` (also mapped from `/calendar`).
-- Default surface is a **2-week day strip**.
-- Selecting a day reveals **slot cards** (mobile friendly).
+### Scheduler surfaces
+- `/calendar` is now a true **view-only 2-week calendar**:
+  - Browse day-by-day availability at a glance
+  - See existing confirmed bookings
+  - Jump into booking flow via CTA
+- `/session` is now dedicated to **book a session** flow.
 
 ### Booking flow
 1. Select day from 2-week calendar strip
-2. Select time slot card
-3. Optional equipment selection (category-first)
+2. Select **one or more** time slot cards
+3. Optional equipment selection with **multi-category** support
 4. Set recurring pattern
 5. Review generated sessions
 6. Confirm booking
@@ -41,7 +43,8 @@ Calendar-first manual scheduling is now the default booking surface.
   - Weights
   - Bodyweight
   - Functional
-- Optional exact equipment picks inside category.
+- Multiple categories can be selected in one booking.
+- Optional exact equipment picks inside selected categories.
 - Conflicts are advisory only: booking is still allowed.
 
 ### Recurring bookings v1

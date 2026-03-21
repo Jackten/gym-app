@@ -19,9 +19,9 @@ export default function HubPage() {
         <div className="hub-hero-content">
           <p className="eyebrow">Dashboard</p>
           <h2>Welcome back, {currentUser.name}</h2>
-          <p className="muted">Your scheduling home. Manual calendar booking is now the default flow.</p>
+          <p className="muted">Your scheduling home. View availability, then jump into booking when ready.</p>
           <div className="hero-actions">
-            <button className="btn-primary btn-lg" onClick={() => navigate('/session')}>
+            <button className="btn-primary btn-lg" onClick={() => navigate('/calendar')}>
               View calendar
             </button>
             <button className="btn-secondary btn-lg" onClick={() => navigate('/session')}>

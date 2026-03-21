@@ -733,7 +733,8 @@ export function AppProvider({ children }) {
           durationMinutes: session.durationMinutes,
           workoutType: 'general-training',
           equipment: equipmentSelection.items.length > 0 ? equipmentSelection.items : ['general'],
-          equipmentCategory: equipmentSelection.category,
+          equipmentCategory: equipmentSelection.categories?.[0] || 'dont-know',
+          equipmentCategories: equipmentSelection.categories || ['dont-know'],
           status: 'confirmed',
           pricing: {
             baseCredits: 0,

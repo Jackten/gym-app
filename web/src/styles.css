@@ -849,6 +849,46 @@ input::placeholder { color: #475569; }
   border-color: rgba(34, 197, 94, 0.3);
 }
 
+/* ─── Calendar View Page ─────────────────────── */
+
+.page-calendar { max-width: 840px; margin: 0 auto; }
+
+.calendar-grid-2w {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.55rem;
+}
+
+.calendar-day-card {
+  text-align: left;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.75rem;
+  background: var(--bg-inset);
+}
+
+.calendar-day-card.active {
+  border-color: var(--accent-border);
+  background: var(--accent-glow);
+}
+
+.calendar-day-name {
+  margin: 0 0 0.2rem;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.calendar-day-metrics {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.74rem;
+  color: var(--text-secondary);
+  text-align: right;
+}
+
 /* ─── Landing Auth ───────────────────────────── */
 
 .page-landing-auth {
@@ -921,6 +961,14 @@ input::placeholder { color: #475569; }
 }
 
 .slot-card.full { opacity: 0.55; }
+
+.slot-card.static {
+  cursor: default;
+}
+
+.slot-card.static:hover {
+  transform: none;
+}
 
 .recurrence-panel {
   display: grid;
@@ -1536,6 +1584,18 @@ textarea:focus {
 }
 
 .eq-chevron { color: var(--text-muted); font-size: 0.82rem; }
+
+.equipment-category-group {
+  margin-top: 0.7rem;
+}
+
+.equipment-category-title {
+  margin: 0 0 0.4rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
 
 .equipment-items {
   display: flex;
@@ -2201,6 +2261,7 @@ tbody tr:hover { background: rgba(15, 118, 110, 0.04); }
 
   .time-grid { grid-template-columns: repeat(3, 1fr); }
   .slot-card-grid { grid-template-columns: 1fr; }
+  .calendar-grid-2w { grid-template-columns: 1fr; }
 
   .workout-grid { grid-template-columns: repeat(2, 1fr); }
 

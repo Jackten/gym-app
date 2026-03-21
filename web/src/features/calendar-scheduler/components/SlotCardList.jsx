@@ -1,16 +1,16 @@
 import React from 'react';
 
-export default function SlotCardList({ slots, selectedSlot, onSelect }) {
+export default function SlotCardList({ slots, selectedSlotIds = [], onToggle }) {
   return (
     <div className="slot-card-grid">
       {slots.map((slot) => {
-        const isActive = selectedSlot?.id === slot.id;
+        const isActive = selectedSlotIds.includes(slot.id);
         return (
           <button
             key={slot.id}
             type="button"
             className={`slot-card${isActive ? ' active' : ''}${slot.isFull ? ' full' : ''}`}
-            onClick={() => onSelect(slot)}
+            onClick={() => onToggle(slot)}
             disabled={slot.isPast || slot.isFull}
           >
             <strong>{slot.label}</strong>

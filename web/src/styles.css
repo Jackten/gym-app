@@ -849,11 +849,136 @@ input::placeholder { color: #475569; }
   border-color: rgba(34, 197, 94, 0.3);
 }
 
+/* ─── Landing Auth ───────────────────────────── */
+
+.page-landing-auth {
+  max-width: 520px;
+  margin: 8vh auto 0;
+}
+
+.landing-auth-card {
+  text-align: center;
+  padding: 2rem 1.5rem;
+}
+
+.landing-auth-actions {
+  display: grid;
+  gap: 0.65rem;
+  margin-top: 1.2rem;
+}
+
 /* ─── Session Booking Flow ───────────────────── */
 
 .page-session { max-width: 720px; margin: 0 auto; }
 
 .page-session-agent { display: grid; gap: 0.9rem; }
+
+.calendar-strip {
+  display: flex;
+  gap: 0.45rem;
+  overflow-x: auto;
+  padding-bottom: 0.35rem;
+}
+
+.calendar-day-chip {
+  min-width: 88px;
+  padding: 0.6rem 0.65rem;
+  border-radius: var(--radius-md);
+  background: var(--bg-inset);
+  border: 1px solid var(--border-default);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+}
+
+.calendar-day-chip span { font-size: 0.7rem; color: var(--text-muted); }
+.calendar-day-chip strong { color: var(--text-white); font-size: 0.86rem; }
+
+.calendar-day-chip.active {
+  border-color: var(--accent-border);
+  background: var(--accent-glow);
+}
+
+.slot-card-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.55rem;
+}
+
+.slot-card {
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.85rem;
+  background: var(--bg-inset);
+}
+
+.slot-card.active {
+  border-color: var(--accent-border);
+  background: var(--accent-glow);
+}
+
+.slot-card.full { opacity: 0.55; }
+
+.recurrence-panel {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.weekday-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.weekday-chip {
+  padding: 0.45rem 0.7rem;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-default);
+  background: var(--bg-inset);
+}
+
+.weekday-chip.on {
+  border-color: var(--accent-border);
+  color: var(--text-accent);
+  background: var(--accent-glow);
+}
+
+.skip-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+}
+
+.skip-date-chip {
+  padding: 0.28rem 0.6rem;
+  font-size: 0.76rem;
+}
+
+.generated-session-list {
+  display: grid;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+}
+
+.generated-session-item {
+  display: flex;
+  justify-content: space-between;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 0.45rem 0.6rem;
+  font-size: 0.82rem;
+}
+
+.scope-option {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+}
 
 textarea {
   background: var(--bg-input);
@@ -2075,6 +2200,7 @@ tbody tr:hover { background: rgba(15, 118, 110, 0.04); }
   .auth-methods { grid-template-columns: 1fr; }
 
   .time-grid { grid-template-columns: repeat(3, 1fr); }
+  .slot-card-grid { grid-template-columns: 1fr; }
 
   .workout-grid { grid-template-columns: repeat(2, 1fr); }
 

@@ -1,10 +1,10 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../contexts/AppContext';
-import { formatDateTime, toTitleCase, equipmentLabel } from '../lib/helpers';
+import { formatDateTime } from '../lib/helpers';
 
 export default function HubPage() {
-  const { currentUser, walletBalance, upcomingBookings } = useApp();
+  const { currentUser, upcomingBookings } = useApp();
   const navigate = useNavigate();
 
   if (!currentUser) return null;
@@ -15,87 +15,35 @@ export default function HubPage() {
 
   return (
     <div className="page-hub">
-      {/* Hero CTA */}
       <section className="hub-hero card">
         <div className="hub-hero-content">
-          <p className="eyebrow">Ready to train?</p>
-          <h2>Book a Session</h2>
-          <p className="muted">
-            Tell the scheduling agent what you need, review 3 smart options, and lock a slot fast.
-          </p>
-          <button className="btn-primary btn-lg" onClick={() => navigate('/session')}>
-            Start Agent Booking →
-          </button>
-        </div>
-        <div className="hub-hero-visual">
-          <div className="hub-hero-icon">📅</div>
+          <p className="eyebrow">Dashboard</p>
+          <h2>Welcome back, {currentUser.name}</h2>
+          <p className="muted">Your scheduling home. Manual calendar booking is now the default flow.</p>
+          <div className="hero-actions">
+            <button className="btn-primary btn-lg" onClick={() => navigate('/session')}>
+              View calendar
+            </button>
+            <button className="btn-secondary btn-lg" onClick={() => navigate('/session')}>
+              Book a session
+            </button>
+          </div>
         </div>
       </section>
 
-      {/* Quick Info Cards */}
-      <div className="hub-cards">
-        {/* Wallet Card */}
-        <section className="hub-card card" onClick={() => navigate('/wallet')}>
-          <div className="hub-card-header">
-            <span className="hub-card-icon">💳</span>
-            <span className="hub-card-title">Credits</span>
-          </div>
-          <div className="hub-card-value">{walletBalance}</div>
-          <button
-            className="btn-sm btn-secondary"
-            onClick={(e) => {
-              e.stopPropagation();
-              navigate('/wallet/topup');
-            }}
-          >
-            Top Up
-          </button>
-        </section>
-
-        {/* Upcoming Sessions Card */}
-        <section className="hub-card card" onClick={() => navigate('/bookings')}>
-          <div className="hub-card-header">
-            <span className="hub-card-icon">📋</span>
-            <span className="hub-card-title">Upcoming</span>
-          </div>
-          <div className="hub-card-value">{upcomingBookings.length}</div>
-          <span className="hub-card-sub">
-            {upcomingBookings.length === 1 ? 'session' : 'sessions'}
-          </span>
-        </section>
-
-        {/* Account Card */}
-        <section className="hub-card card" onClick={() => navigate('/account')}>
-          <div className="hub-card-header">
-            <span className="hub-card-icon">👤</span>
-            <span className="hub-card-title">Account</span>
-          </div>
-          <div className="hub-card-name">{currentUser.name}</div>
-          <span className="hub-card-sub">View profile</span>
-        </section>
-      </div>
-
-      {/* Next Booking Preview */}
-      {nextBooking && (
+      {nextBooking ? (
         <section className="card next-booking-card">
           <div className="next-booking-header">
-            <h3>Next Session</h3>
-            <button className="btn-sm" onClick={() => navigate('/bookings')}>
-              View All
-            </button>
+            <h3>Upcoming booking</h3>
+            <button className="btn-sm" onClick={() => navigate('/bookings')}>View all</button>
           </div>
-          <div className="next-booking-body">
-            <div className="next-booking-time">
-              <strong>{formatDateTime(nextBooking.startISO)}</strong>
-              <span className="muted">{nextBooking.durationMinutes} min</span>
-            </div>
-            <div className="next-booking-details">
-              <span className="badge">{toTitleCase(nextBooking.workoutType)}</span>
-              <span className="muted">
-                {nextBooking.equipment.map((e) => equipmentLabel(e)).join(', ')}
-              </span>
-            </div>
-          </div>
+          <strong>{formatDateTime(nextBooking.startISO)}</strong>
+          <p className="muted" style={{ marginBottom: 0 }}>{nextBooking.durationMinutes} min session</p>
+        </section>
+      ) : (
+        <section className="card">
+          <h3>No upcoming sessions</h3>
+          <p className="muted">Tap Book a session to reserve your next training slot.</p>
         </section>
       )}
     </div>

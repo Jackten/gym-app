@@ -21,6 +21,8 @@ import {
   generateDemoCode,
   createLocalDate,
 } from '../lib/helpers';
+import { SLOT_CAPACITY } from '../features/calendar-scheduler/config';
+import { getSlotAvailability } from '../features/calendar-scheduler/utils';
 
 const AppContext = createContext(null);
 
@@ -36,7 +38,7 @@ export function AppProvider({ children }) {
   const [notice, setNotice] = useState('');
 
   // Auth UI state
-  const [authMethod, setAuthMethod] = useState('google');
+  const [authMethod, setAuthMethod] = useState('passkey');
   const [authPending, setAuthPending] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
   const [expectedCode, setExpectedCode] = useState('');
@@ -186,7 +188,7 @@ export function AppProvider({ children }) {
         created: outcome.created,
       });
       setNotice(`Welcome to Pelayo Wellness, ${outcome.user.name}!`);
-      return { redirect: '/welcome', success: true };
+      return { redirect: '/home', success: true };
     }
 
     if (outcome.created) {
@@ -199,6 +201,20 @@ export function AppProvider({ children }) {
 
   async function handleAuthSubmit(authForm, authMode) {
     if (authPending) return {};
+
+    if (authMethod === 'passkey') {
+      const email = authForm.email.trim().toLowerCase();
+      if (!email.includes('@')) {
+        setNotice('Passkey sign in needs a valid account email in this prototype.');
+        return {};
+      }
+      setAuthPending(true);
+      await new Promise((r) => setTimeout(r, 450));
+      return completeAuth(
+        { email, name: authForm.name.trim() || deriveNameFromEmail(email) },
+        authMode,
+      );
+    }
 
     if (authMethod === 'google') {
       const email = authForm.email.trim().toLowerCase();
@@ -624,7 +640,7 @@ export function AppProvider({ children }) {
     setAppState((prev) => ({ ...prev, clockOffsetMinutes: parsed }));
   }
 
-  // Compute slot availability for time grid
+  // Legacy quote-based slot helper retained for older pages.
   const getSlotInfo = useCallback(
     (dateStr, hour) => {
       const start = createLocalDate(dateStr, `${String(hour).padStart(2, '0')}:00`);
@@ -668,6 +684,171 @@ export function AppProvider({ children }) {
     [appState.bookings, now, activeQuote],
   );
 
+  const getSlotAvailabilityForDay = useCallback(
+    (dateInput) => getSlotAvailability({ bookings: appState.bookings, dateInput, now }),
+    [appState.bookings, now],
+  );
+
+  function createManualBookings({ sessions, equipmentSelection, note, recurrence }) {
+    if (!currentUser) {
+      setNotice('Sign in first.');
+      return { ok: false };
+    }
+
+    if (!Array.isArray(sessions) || sessions.length === 0) {
+      setNotice('No sessions to book.');
+      return { ok: false };
+    }
+
+    const seriesId = sessions.length > 1 ? `series-${Date.now()}` : null;
+
+    setAppState((prev) => {
+      const next = structuredClone(prev);
+      const booked = [];
+
+      for (let i = 0; i < sessions.length; i += 1) {
+        const session = sessions[i];
+        const startDate = createLocalDate(session.dateInput, session.timeInput);
+        const endDate = new Date(startDate.getTime() + session.durationMinutes * 60_000);
+
+        if (startDate <= now) continue;
+
+        const overlapCount = next.bookings.filter((booking) => {
+          if (booking.status !== 'confirmed') return false;
+          const bStart = new Date(booking.startISO);
+          const bEnd = new Date(booking.endISO);
+          return bStart < endDate && startDate < bEnd;
+        }).length;
+
+        if (overlapCount >= SLOT_CAPACITY) continue;
+
+        const bookingId = `b${next.nextBookingId}`;
+        next.nextBookingId += 1;
+
+        next.bookings.push({
+          id: bookingId,
+          userId: currentUser.id,
+          startISO: startDate.toISOString(),
+          endISO: endDate.toISOString(),
+          durationMinutes: session.durationMinutes,
+          workoutType: 'general-training',
+          equipment: equipmentSelection.items.length > 0 ? equipmentSelection.items : ['general'],
+          equipmentCategory: equipmentSelection.category,
+          status: 'confirmed',
+          pricing: {
+            baseCredits: 0,
+            demandMultiplier: 1,
+            demandTier: 'Deferred',
+            demandCount: 0,
+            occupancyMultiplier: 1,
+            occupancyAtQuote: overlapCount + 1,
+            finalCredits: 0,
+          },
+          createdAt: now.toISOString(),
+          bookingNote: note || undefined,
+          source: 'calendar-v2',
+          recurrence: seriesId
+            ? {
+                seriesId,
+                frequency: recurrence.frequency,
+                weekdays: recurrence.weekdays,
+                endDate: recurrence.endDate,
+                skipDates: recurrence.skipDates,
+                occurrenceIndex: i + 1,
+                totalOccurrences: sessions.length,
+              }
+            : null,
+        });
+
+        booked.push(bookingId);
+      }
+
+      if (booked.length === 0) return prev;
+      return next;
+    });
+
+    const count = sessions.length;
+    setNotice(count > 1 ? `Recurring booking created (${count} sessions).` : 'Booking confirmed.');
+    return { ok: true, count };
+  }
+
+  function editBookingTime({ bookingId, newTimeInput, scope = 'one' }) {
+    if (!currentUser) return false;
+
+    let changedCount = 0;
+
+    setAppState((prev) => {
+      const next = structuredClone(prev);
+      const target = next.bookings.find((booking) => booking.id === bookingId && booking.userId === currentUser.id);
+      if (!target || target.status !== 'confirmed') return prev;
+
+      const targetDate = new Date(target.startISO);
+      const targetDateInput = `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, '0')}-${String(targetDate.getDate()).padStart(2, '0')}`;
+
+      const updateCandidate = (booking) => {
+        const currentStart = new Date(booking.startISO);
+        const dateInput = `${currentStart.getFullYear()}-${String(currentStart.getMonth() + 1).padStart(2, '0')}-${String(currentStart.getDate()).padStart(2, '0')}`;
+        const nextStart = createLocalDate(dateInput, newTimeInput);
+        const nextEnd = new Date(nextStart.getTime() + booking.durationMinutes * 60_000);
+
+        const conflictCount = next.bookings.filter((candidate) => {
+          if (candidate.id === booking.id || candidate.status !== 'confirmed') return false;
+          const cStart = new Date(candidate.startISO);
+          const cEnd = new Date(candidate.endISO);
+          return cStart < nextEnd && nextStart < cEnd;
+        }).length;
+
+        if (conflictCount >= SLOT_CAPACITY) return;
+
+        booking.startISO = nextStart.toISOString();
+        booking.endISO = nextEnd.toISOString();
+        changedCount += 1;
+      };
+
+      if (scope === 'all' && target.recurrence?.seriesId) {
+        next.bookings.forEach((booking) => {
+          if (
+            booking.userId === currentUser.id
+            && booking.status === 'confirmed'
+            && booking.recurrence?.seriesId === target.recurrence.seriesId
+            && new Date(booking.startISO) >= now
+          ) {
+            updateCandidate(booking);
+          }
+        });
+      } else {
+        const one = next.bookings.find((booking) => booking.id === bookingId && booking.userId === currentUser.id);
+        if (!one) return prev;
+        // retain date, change only time
+        const nextStart = createLocalDate(targetDateInput, newTimeInput);
+        const nextEnd = new Date(nextStart.getTime() + one.durationMinutes * 60_000);
+
+        const conflictCount = next.bookings.filter((candidate) => {
+          if (candidate.id === one.id || candidate.status !== 'confirmed') return false;
+          const cStart = new Date(candidate.startISO);
+          const cEnd = new Date(candidate.endISO);
+          return cStart < nextEnd && nextStart < cEnd;
+        }).length;
+
+        if (conflictCount >= SLOT_CAPACITY) return prev;
+
+        one.startISO = nextStart.toISOString();
+        one.endISO = nextEnd.toISOString();
+        changedCount += 1;
+      }
+
+      return changedCount > 0 ? next : prev;
+    });
+
+    if (changedCount === 0) {
+      setNotice('Unable to apply edit — selected slot is full.');
+      return false;
+    }
+
+    setNotice(scope === 'all' ? `Updated ${changedCount} sessions in this series.` : 'Session updated.');
+    return true;
+  }
+
   const value = {
     appState,
     setAppState,
@@ -704,6 +885,9 @@ export function AppProvider({ children }) {
     cancelBooking,
     getBusyEquipment,
     getSlotInfo,
+    getSlotAvailabilityForDay,
+    createManualBookings,
+    editBookingTime,
 
     // Wallet
     handleTopUp,

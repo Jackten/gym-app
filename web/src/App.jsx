@@ -6,10 +6,8 @@ import Notice from './components/Notice';
 
 import LandingPage from './pages/LandingPage';
 import AuthPage from './pages/AuthPage';
-import WelcomePage from './pages/WelcomePage';
 import HubPage from './pages/HubPage';
 import SessionPage from './pages/SessionPage';
-import SessionConfirmedPage from './pages/SessionConfirmedPage';
 import WalletPage from './pages/WalletPage';
 import TopUpPage from './pages/TopUpPage';
 import BookingsPage from './pages/BookingsPage';
@@ -59,7 +57,7 @@ export default function App() {
   // Show bottom nav only for authenticated users on app pages
   const showBottomNav =
     currentUser &&
-    !['/signin', '/register', '/', '/welcome'].includes(location.pathname);
+    !['/signin', '/register', '/'].includes(location.pathname);
 
   // Determine if we're on a flow page (session steps, top-up) where we might want minimal chrome
   const isFlowPage = location.pathname.startsWith('/session');
@@ -121,16 +119,6 @@ export default function App() {
             <Route path="/signin" element={<AuthPage />} />
             <Route path="/register" element={<AuthPage />} />
 
-            {/* Transitional */}
-            <Route
-              path="/welcome"
-              element={
-                <RequireAuth>
-                  <WelcomePage />
-                </RequireAuth>
-              }
-            />
-
             {/* Protected */}
             <Route
               path="/home"
@@ -149,10 +137,10 @@ export default function App() {
               }
             />
             <Route
-              path="/session/confirmed"
+              path="/calendar"
               element={
                 <RequireAuth>
-                  <SessionConfirmedPage />
+                  <SessionPage />
                 </RequireAuth>
               }
             />

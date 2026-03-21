@@ -62,13 +62,15 @@ export default function AccountPage() {
             {authProviders.map((provider) => (
               <div key={provider} className="auth-provider-row">
                 <span className="auth-provider-icon">
-                  {provider === 'google'
-                    ? '🔑'
-                    : provider === 'ethereum'
-                      ? '⬡'
-                      : provider === 'phone'
-                        ? '📱'
-                        : '✉️'}
+                  {provider === 'passkey'
+                    ? '🗝️'
+                    : provider === 'google'
+                      ? '🔑'
+                      : provider === 'ethereum'
+                        ? '⬡'
+                        : provider === 'phone'
+                          ? '📱'
+                          : '✉️'}
                 </span>
                 <span>{toTitleCase(provider)}</span>
                 <span className="badge badge-active">Connected</span>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useParams, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../contexts/AppContext';
 import { AUTH_METHODS, AUTH_VIEW_COPY, EMPTY_AUTH_FORM } from '../lib/constants';
 import { abbreviateWallet } from '../lib/helpers';
@@ -92,6 +92,23 @@ export default function AuthPage() {
                 placeholder="e.g. Maria Pelayo"
               />
             </label>
+          )}
+
+          {authMethod === 'passkey' && (
+            <>
+              <label>
+                Account email
+                <input
+                  type="email"
+                  value={authForm.email}
+                  onChange={(e) => setAuthForm((p) => ({ ...p, email: e.target.value }))}
+                  placeholder="you@example.com"
+                />
+              </label>
+              <p className="muted" style={{ margin: 0, fontSize: '0.8rem' }}>
+                Prototype note: passkey flow is mocked and uses email identity.
+              </p>
+            </>
           )}
 
           {authMethod === 'google' && (

@@ -28,7 +28,7 @@ export default function SessionPage() {
   const navigate = useNavigate();
   const twoWeekDays = useMemo(() => getTwoWeekRange(now), [now]);
   const [selectedDay, setSelectedDay] = useState(twoWeekDays[0]?.id || formatDateInput(now));
-  const [selectedSlots, setSelectedSlots] = useState([]);
+  const [selectedSlotsByDay, setSelectedSlotsByDay] = useState({});
   const [step, setStep] = useState('slot');
 
   const [equipmentSelection, setEquipmentSelection] = useState({ categories: ['dont-know'], items: [] });
@@ -45,13 +45,51 @@ export default function SessionPage() {
 
   const [generatedSessions, setGeneratedSessions] = useState([]);
 
+  const dayLabelMap = useMemo(() => {
+    const labels = new Map();
+    twoWeekDays.forEach((day) => {
+      labels.set(day.id, `${day.dayName} ${day.monthDay}`);
+    });
+    return labels;
+  }, [twoWeekDays]);
+
   const slots = useMemo(() => getSlotAvailabilityForDay(selectedDay), [selectedDay, getSlotAvailabilityForDay]);
 
-  const equipmentConflicts = useMemo(() => {
-    if (selectedSlots.length === 0) return [];
+  const selectedSlotsForCurrentDay = selectedSlotsByDay[selectedDay] || [];
 
-    const busyAcrossSelectedSlots = selectedSlots.reduce((busySet, slot) => {
-      const start = createLocalDate(selectedDay, slot.id);
+  const selectedSlotsFlat = useMemo(
+    () => Object.entries(selectedSlotsByDay)
+      .flatMap(([dateInput, slotsForDay]) => slotsForDay.map((slot) => ({ ...slot, dateInput })))
+      .sort((a, b) => {
+        const aKey = `${a.dateInput}T${a.id}`;
+        const bKey = `${b.dateInput}T${b.id}`;
+        return aKey.localeCompare(bKey);
+      }),
+    [selectedSlotsByDay],
+  );
+
+  const selectedSlotCount = selectedSlotsFlat.length;
+  const selectedDayCount = Object.keys(selectedSlotsByDay).length;
+
+  const selectedSlotsGrouped = useMemo(() => {
+    const grouped = {};
+    selectedSlotsFlat.forEach((slot) => {
+      if (!grouped[slot.dateInput]) grouped[slot.dateInput] = [];
+      grouped[slot.dateInput].push(slot);
+    });
+
+    Object.values(grouped).forEach((slotsForDay) => {
+      slotsForDay.sort((a, b) => a.id.localeCompare(b.id));
+    });
+
+    return grouped;
+  }, [selectedSlotsFlat]);
+
+  const equipmentConflicts = useMemo(() => {
+    if (selectedSlotsFlat.length === 0) return [];
+
+    const busyAcrossSelectedSlots = selectedSlotsFlat.reduce((busySet, slot) => {
+      const start = createLocalDate(slot.dateInput, slot.id);
       const end = new Date(start.getTime() + 60 * 60_000);
       const busy = getBusyEquipment(start, end);
       busy.forEach((item) => busySet.add(item));
@@ -59,22 +97,29 @@ export default function SessionPage() {
     }, new Set());
 
     return equipmentSelection.items.filter((item) => busyAcrossSelectedSlots.has(item));
-  }, [selectedSlots, selectedDay, getBusyEquipment, equipmentSelection.items]);
+  }, [selectedSlotsFlat, getBusyEquipment, equipmentSelection.items]);
 
   if (!currentUser) return null;
 
   function handleSelectDay(dayId) {
     setSelectedDay(dayId);
-    setSelectedSlots([]);
   }
 
   function handleToggleSlot(slot) {
-    setSelectedSlots((prev) => {
-      const exists = prev.some((candidate) => candidate.id === slot.id);
-      if (exists) {
-        return prev.filter((candidate) => candidate.id !== slot.id);
+    setSelectedSlotsByDay((prev) => {
+      const currentDaySlots = prev[selectedDay] || [];
+      const exists = currentDaySlots.some((candidate) => candidate.id === slot.id);
+      const nextDaySlots = exists
+        ? currentDaySlots.filter((candidate) => candidate.id !== slot.id)
+        : [...currentDaySlots, slot].sort((a, b) => a.id.localeCompare(b.id));
+
+      const next = { ...prev };
+      if (nextDaySlots.length === 0) {
+        delete next[selectedDay];
+      } else {
+        next[selectedDay] = nextDaySlots;
       }
-      return [...prev, slot].sort((a, b) => a.id.localeCompare(b.id));
+      return next;
     });
   }
 
@@ -147,7 +192,7 @@ export default function SessionPage() {
   }
 
   function proceedToEquipment() {
-    if (selectedSlots.length === 0) {
+    if (selectedSlotCount === 0) {
       setNotice('Select at least one slot card first.');
       return;
     }
@@ -155,26 +200,26 @@ export default function SessionPage() {
   }
 
   function proceedToRecurrence() {
-    if (selectedSlots.length === 0) return;
+    if (selectedSlotCount === 0) return;
     setStep('recurrence');
   }
 
   function generateSeriesReview() {
-    if (selectedSlots.length === 0) return;
-
-    const slotDate = createLocalDate(selectedDay, '00:00');
-    const selectedWeekday = slotDate.getDay();
-    const effectiveWeekdays = recurrence.frequency === 'none'
-      ? [selectedWeekday]
-      : recurrence.weekdays.length > 0
-        ? recurrence.weekdays
-        : [selectedWeekday];
+    if (selectedSlotCount === 0) return;
 
     const uniqueSessions = new Map();
 
-    selectedSlots.forEach((slot) => {
+    selectedSlotsFlat.forEach((slot) => {
+      const slotDate = createLocalDate(slot.dateInput, '00:00');
+      const selectedWeekday = slotDate.getDay();
+      const effectiveWeekdays = recurrence.frequency === 'none'
+        ? [selectedWeekday]
+        : recurrence.weekdays.length > 0
+          ? recurrence.weekdays
+          : [selectedWeekday];
+
       const sessionsForSlot = generateRecurringSessions({
-        selectedDate: selectedDay,
+        selectedDate: slot.dateInput,
         time: slot.id,
         durationMinutes: 60,
         recurrence: {
@@ -220,21 +265,36 @@ export default function SessionPage() {
       <section className="card">
         <p className="eyebrow">Manual calendar scheduler</p>
         <h2>Book a session</h2>
-        <p className="muted section-desc">Select one or more slot cards, then confirm your booking in one action.</p>
+        <p className="muted section-desc">Select slot cards across one or more days, then confirm your booking in one action.</p>
 
         <TwoWeekCalendar days={twoWeekDays} selectedDay={selectedDay} onSelectDay={handleSelectDay} />
 
         <h4 style={{ marginTop: '1rem' }}>Available times</h4>
         <SlotCardList
           slots={slots}
-          selectedSlotIds={selectedSlots.map((slot) => slot.id)}
+          selectedSlotIds={selectedSlotsForCurrentDay.map((slot) => slot.id)}
           onToggle={handleToggleSlot}
         />
 
-        {selectedSlots.length > 0 && (
-          <p className="muted" style={{ margin: '0.65rem 0 0' }}>
-            Selected slots: {selectedSlots.map((slot) => slot.label).join(', ')}
-          </p>
+        {selectedSlotCount > 0 && (
+          <div className="selected-slot-cart">
+            <div className="selected-slot-cart-header">
+              <strong>{selectedSlotCount} slot{selectedSlotCount > 1 ? 's' : ''} selected</strong>
+              <span>{selectedDayCount} day{selectedDayCount > 1 ? 's' : ''}</span>
+            </div>
+
+            <details>
+              <summary>Review selected slots</summary>
+              <div className="selected-slot-cart-list">
+                {Object.entries(selectedSlotsGrouped).map(([dateInput, slotsForDay]) => (
+                  <div key={dateInput} className="selected-slot-cart-group">
+                    <strong>{dayLabelMap.get(dateInput) || dateInput}</strong>
+                    <span>{slotsForDay.map((slot) => slot.label).join(', ')}</span>
+                  </div>
+                ))}
+              </div>
+            </details>
+          </div>
         )}
 
         {step === 'slot' && (

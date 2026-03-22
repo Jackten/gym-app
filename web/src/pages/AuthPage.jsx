@@ -112,28 +112,9 @@ export default function AuthPage() {
           )}
 
           {authMethod === 'google' && (
-            <>
-              <label>
-                Google email
-                <input
-                  type="email"
-                  value={authForm.email}
-                  onChange={(e) => setAuthForm((p) => ({ ...p, email: e.target.value }))}
-                  placeholder="you@gmail.com"
-                />
-              </label>
-              {authMode === 'signin' && (
-                <label>
-                  Name (optional)
-                  <input
-                    type="text"
-                    value={authForm.name}
-                    onChange={(e) => setAuthForm((p) => ({ ...p, name: e.target.value }))}
-                    placeholder="e.g. Maria Pelayo"
-                  />
-                </label>
-              )}
-            </>
+            <p className="muted" style={{ margin: 0, fontSize: '0.9rem' }}>
+              You&apos;ll continue with Google in a secure Supabase popup.
+            </p>
           )}
 
           {authMethod === 'ethereum' && (

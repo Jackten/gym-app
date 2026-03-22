@@ -12,7 +12,8 @@ Calendar-first manual scheduling is now the default booking surface.
 ### Landing
 - Landing only presents **Login** and **Register**.
 - Auth methods supported: **Passkey, Google, Email, Phone, Ethereum**.
-- Remembered session behavior: app state persists in browser storage so returning users stay signed in until sign-out.
+- Remembered session behavior: Supabase Auth session persistence keeps users signed in until sign-out.
+- Fallback mode: if Supabase is unavailable/misconfigured, prototype local state still works for development.
 
 ### Post-login
 - After sign-in/register, users land on **Dashboard** (`/home`).

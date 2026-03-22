@@ -5,7 +5,7 @@ import { formatDateInput, formatDateTime } from '../lib/helpers';
 import { getTwoWeekRange } from '../features/calendar-scheduler/utils';
 
 export default function CalendarPage() {
-  const { now, appState, currentUser, getSlotAvailabilityForDay, upcomingBookings } = useApp();
+  const { now, allBookings, currentUser, getSlotAvailabilityForDay, upcomingBookings } = useApp();
   const navigate = useNavigate();
 
   const twoWeekDays = useMemo(() => getTwoWeekRange(now), [now]);
@@ -28,8 +28,8 @@ export default function CalendarPage() {
   });
 
   const selectedSlots = getSlotAvailabilityForDay(selectedDay);
-  const selectedDayBookings = appState.bookings
-    .filter((booking) => booking.status === 'confirmed' && booking.startISO.startsWith(selectedDay))
+  const selectedDayBookings = allBookings
+    .filter((booking) => booking.status === 'confirmed' && booking.startISO?.startsWith(selectedDay))
     .sort((a, b) => new Date(a.startISO) - new Date(b.startISO));
 
   const mySelectedDayBookings = selectedDayBookings.filter((booking) => booking.userId === currentUser.id);

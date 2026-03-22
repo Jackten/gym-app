@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react';
 import { loadAppState, resetAppState, saveAppState } from '../lib/storage';
-import { requestEmailOtp, verifyEmailOtp } from '../lib/authApi';
 import {
   calculateQuote,
   isHoldActive,
@@ -21,10 +20,34 @@ import {
   generateDemoCode,
   createLocalDate,
 } from '../lib/helpers';
-import { SLOT_CAPACITY } from '../features/calendar-scheduler/config';
+import { SLOT_CAPACITY, EQUIPMENT_FLOW_CATEGORIES } from '../features/calendar-scheduler/config';
 import { getSlotAvailability } from '../features/calendar-scheduler/utils';
+import { getSupabaseClient, isSupabaseConfigured } from '../lib/supabaseClient';
+import {
+  mapSupabaseBooking,
+  buildProfileFromAuth,
+  buildEquipmentCategories,
+} from '../lib/supabaseBackend';
 
 const AppContext = createContext(null);
+
+function padTime(value) {
+  const [h = '00', m = '00'] = String(value || '').split(':');
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`;
+}
+
+function addMinutesToTime(timeInput, minutesToAdd) {
+  const [hours, minutes] = String(timeInput).split(':').map(Number);
+  const total = hours * 60 + minutes + Number(minutesToAdd || 0);
+  const nextHours = Math.floor(total / 60) % 24;
+  const nextMinutes = total % 60;
+  return `${String(nextHours).padStart(2, '0')}:${String(nextMinutes).padStart(2, '0')}:00`;
+}
+
+function pickAuthProviders(authUser) {
+  if (!authUser?.app_metadata?.providers) return [];
+  return authUser.app_metadata.providers;
+}
 
 export function useApp() {
   const ctx = useContext(AppContext);
@@ -36,6 +59,13 @@ export function AppProvider({ children }) {
   const [appState, setAppState] = useState(() => loadAppState());
   const [nowMs, setNowMs] = useState(Date.now());
   const [notice, setNotice] = useState('');
+
+  const supabase = useMemo(() => getSupabaseClient(), []);
+  const [supabaseSession, setSupabaseSession] = useState(null);
+  const [supabaseUser, setSupabaseUser] = useState(null);
+  const [supabaseProfile, setSupabaseProfile] = useState(null);
+  const [supabaseBookings, setSupabaseBookings] = useState([]);
+  const [supabaseEquipment, setSupabaseEquipment] = useState([]);
 
   // Auth UI state
   const [authMethod, setAuthMethod] = useState('passkey');
@@ -50,7 +80,24 @@ export function AppProvider({ children }) {
     [nowMs, appState.clockOffsetMinutes],
   );
 
-  const currentUser = appState.users.find((u) => u.id === appState.currentUserId) || null;
+  const fallbackCurrentUser = appState.users.find((u) => u.id === appState.currentUserId) || null;
+  const supabaseCurrentUser = useMemo(
+    () => buildProfileFromAuth(supabaseUser, supabaseProfile),
+    [supabaseUser, supabaseProfile],
+  );
+
+  const currentUser = supabaseCurrentUser || fallbackCurrentUser;
+
+  const effectiveBookings = useMemo(
+    () => (supabaseCurrentUser ? supabaseBookings : appState.bookings),
+    [supabaseCurrentUser, supabaseBookings, appState.bookings],
+  );
+
+  const equipmentCategories = useMemo(
+    () => buildEquipmentCategories(supabaseEquipment),
+    [supabaseEquipment],
+  );
+
   const walletBalance = currentUser ? appState.wallets[currentUser.id] || 0 : 0;
 
   const activeQuote =
@@ -59,6 +106,68 @@ export function AppProvider({ children }) {
   const quoteSecondsLeft = activeQuote
     ? Math.max(0, Math.floor((new Date(activeQuote.holdExpiresAt).getTime() - now.getTime()) / 1000))
     : 0;
+
+  const hydrateSupabaseData = useCallback(async () => {
+    if (!supabase || !supabaseUser) return;
+
+    const [profileResult, bookingsResult, equipmentResult] = await Promise.all([
+      supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', supabaseUser.id)
+        .maybeSingle(),
+      supabase
+        .from('bookings')
+        .select('*, recurring_groups(*)')
+        .order('slot_date', { ascending: false })
+        .order('start_time', { ascending: false }),
+      supabase
+        .from('equipment')
+        .select('*')
+        .order('category', { ascending: true })
+        .order('name', { ascending: true }),
+    ]);
+
+    if (profileResult.error) {
+      console.warn('Unable to load profile from Supabase:', profileResult.error.message);
+    }
+
+    if (bookingsResult.error) {
+      console.warn('Unable to load bookings from Supabase:', bookingsResult.error.message);
+    }
+
+    if (equipmentResult.error) {
+      console.warn('Unable to load equipment from Supabase:', equipmentResult.error.message);
+    }
+
+    setSupabaseProfile(profileResult.data || null);
+    setSupabaseBookings((bookingsResult.data || []).map(mapSupabaseBooking));
+    setSupabaseEquipment(equipmentResult.data || []);
+  }, [supabase, supabaseUser]);
+
+  const ensureSupabaseProfile = useCallback(async () => {
+    if (!supabase || !supabaseUser) return;
+
+    const payload = {
+      id: supabaseUser.id,
+      email: supabaseUser.email || null,
+      full_name:
+        supabaseUser.user_metadata?.full_name
+        || supabaseUser.user_metadata?.name
+        || deriveNameFromEmail(supabaseUser.email || ''),
+      phone: supabaseUser.phone || null,
+      auth_methods: pickAuthProviders(supabaseUser),
+      last_sign_in_at: supabaseUser.last_sign_in_at || new Date().toISOString(),
+    };
+
+    const { error } = await supabase
+      .from('profiles')
+      .upsert(payload, { onConflict: 'id' });
+
+    if (error) {
+      console.warn('Unable to upsert profile:', error.message);
+    }
+  }, [supabase, supabaseUser]);
 
   useEffect(() => {
     const id = setInterval(() => setNowMs(Date.now()), 1000);
@@ -84,32 +193,61 @@ export function AppProvider({ children }) {
     return () => clearTimeout(timer);
   }, [notice]);
 
+  useEffect(() => {
+    if (!supabase || !isSupabaseConfigured) return undefined;
+
+    let isMounted = true;
+
+    supabase.auth.getSession().then(({ data }) => {
+      if (!isMounted) return;
+      setSupabaseSession(data.session || null);
+      setSupabaseUser(data.session?.user || null);
+    });
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSupabaseSession(session || null);
+      setSupabaseUser(session?.user || null);
+      if (!session?.user) {
+        setSupabaseProfile(null);
+        setSupabaseBookings([]);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      authListener.subscription.unsubscribe();
+    };
+  }, [supabase]);
+
+  useEffect(() => {
+    if (!supabaseUser) return;
+
+    ensureSupabaseProfile().finally(() => {
+      hydrateSupabaseData();
+    });
+  }, [supabaseUser, ensureSupabaseProfile, hydrateSupabaseData]);
+
   const myBookings = useMemo(() => {
     if (!currentUser) return [];
-    return appState.bookings.filter((b) => b.userId === currentUser.id).sort(sortByStartDesc);
-  }, [appState.bookings, currentUser]);
+    return effectiveBookings.filter((b) => b.userId === currentUser.id).sort(sortByStartDesc);
+  }, [effectiveBookings, currentUser]);
 
-  const allBookings = useMemo(
-    () => [...appState.bookings].sort(sortByStartDesc),
-    [appState.bookings],
-  );
+  const allBookings = useMemo(() => [...effectiveBookings].sort(sortByStartDesc), [effectiveBookings]);
 
   const upcomingBookings = useMemo(() => {
     return myBookings.filter((b) => b.status === 'confirmed' && new Date(b.startISO) > now);
   }, [myBookings, now]);
 
   const pastBookings = useMemo(() => {
-    return myBookings.filter(
-      (b) => b.status !== 'confirmed' || new Date(b.startISO) <= now,
-    );
+    return myBookings.filter((b) => b.status !== 'confirmed' || new Date(b.startISO) <= now);
   }, [myBookings, now]);
 
   const landingStats = useMemo(() => {
-    const upcoming = appState.bookings.filter(
+    const upcoming = effectiveBookings.filter(
       (b) => b.status === 'confirmed' && new Date(b.startISO) > now,
     );
     return {
-      activeMembers: appState.users.length,
+      activeMembers: Math.max(appState.users.length, new Set(effectiveBookings.map((b) => b.userId)).size),
       upcomingSessions: upcoming.length,
       avgSessionCredits: upcoming.length
         ? Math.round(
@@ -118,23 +256,23 @@ export function AppProvider({ children }) {
           )
         : 0,
     };
-  }, [appState.bookings, appState.users.length, now]);
+  }, [effectiveBookings, appState.users.length, now]);
 
   // Get busy equipment for a given time range
   const getBusyEquipment = useCallback(
     (startDate, endDate) => {
       const busy = new Set();
-      for (const booking of appState.bookings) {
+      for (const booking of effectiveBookings) {
         if (booking.status !== 'confirmed') continue;
         const bStart = new Date(booking.startISO);
         const bEnd = new Date(booking.endISO);
         if (bStart < endDate && startDate < bEnd) {
-          (booking.equipment || []).forEach((e) => busy.add(e));
+          (booking.equipment || booking.equipmentItems || []).forEach((e) => busy.add(e));
         }
       }
       return busy;
     },
-    [appState.bookings],
+    [effectiveBookings],
   );
 
   // Auth
@@ -202,6 +340,84 @@ export function AppProvider({ children }) {
   async function handleAuthSubmit(authForm, authMode) {
     if (authPending) return {};
 
+    if (isSupabaseConfigured && supabase && authMethod === 'google') {
+      setAuthPending(true);
+      try {
+        const { error } = await supabase.auth.signInWithOAuth({
+          provider: 'google',
+          options: {
+            redirectTo: window.location.href,
+          },
+        });
+
+        if (error) {
+          setNotice(error.message || 'Google sign-in failed.');
+          return {};
+        }
+
+        setNotice('Redirecting to Google…');
+        return {};
+      } finally {
+        setAuthPending(false);
+      }
+    }
+
+    if (isSupabaseConfigured && supabase && authMethod === 'email') {
+      const email = authForm.email.trim().toLowerCase();
+      if (!email.includes('@')) {
+        setNotice('Enter a valid email address.');
+        return {};
+      }
+
+      if (!otpSent) {
+        setAuthPending(true);
+        try {
+          const { error } = await supabase.auth.signInWithOtp({
+            email,
+            options: {
+              shouldCreateUser: authMode === 'register',
+            },
+          });
+
+          if (error) throw error;
+          setOtpSent(true);
+          setNotice(`Verification code sent to ${email}.`);
+        } catch (error) {
+          setOtpSent(false);
+          setNotice(error?.message || 'Unable to send email code right now.');
+        } finally {
+          setAuthPending(false);
+        }
+        return {};
+      }
+
+      const code = authForm.code.trim();
+      if (!code || code.length < 4) {
+        setNotice('Enter the 4–8 digit verification code.');
+        return {};
+      }
+
+      setAuthPending(true);
+      try {
+        const { error } = await supabase.auth.verifyOtp({
+          email,
+          token: code,
+          type: 'email',
+        });
+
+        if (error) throw error;
+
+        await hydrateSupabaseData();
+        resetAuthState();
+        setNotice(`Welcome to Pelayo Wellness, ${deriveNameFromEmail(email)}.`);
+        return { redirect: '/home', success: true };
+      } catch (error) {
+        setAuthPending(false);
+        setNotice(error?.message || 'Invalid or expired email code. Request a new one.');
+        return {};
+      }
+    }
+
     if (authMethod === 'passkey') {
       const email = authForm.email.trim().toLowerCase();
       if (!email.includes('@')) {
@@ -210,20 +426,6 @@ export function AppProvider({ children }) {
       }
       setAuthPending(true);
       await new Promise((r) => setTimeout(r, 450));
-      return completeAuth(
-        { email, name: authForm.name.trim() || deriveNameFromEmail(email) },
-        authMode,
-      );
-    }
-
-    if (authMethod === 'google') {
-      const email = authForm.email.trim().toLowerCase();
-      if (!email.includes('@')) {
-        setNotice('Enter a valid Google email to continue.');
-        return {};
-      }
-      setAuthPending(true);
-      await new Promise((r) => setTimeout(r, 700));
       return completeAuth(
         { email, name: authForm.name.trim() || deriveNameFromEmail(email) },
         authMode,
@@ -273,50 +475,6 @@ export function AppProvider({ children }) {
       );
     }
 
-    if (authMethod === 'email') {
-      const email = authForm.email.trim().toLowerCase();
-      if (!email.includes('@')) {
-        setNotice('Enter a valid email address.');
-        return {};
-      }
-      if (!otpSent) {
-        setAuthPending(true);
-        try {
-          const response = await requestEmailOtp(email);
-          setOtpSent(true);
-          setExpectedCode('');
-          setEmailOtpRequestId(response.requestId || '');
-          setNotice(`Verification code sent to ${response.maskedEmail || email}.`);
-        } catch (error) {
-          setOtpSent(false);
-          setEmailOtpRequestId('');
-          setNotice(error?.message || 'Unable to send email code right now. Please try again.');
-        } finally {
-          setAuthPending(false);
-        }
-        return {};
-      }
-      if (!emailOtpRequestId) {
-        setOtpSent(false);
-        setNotice('Please request a new email code.');
-        return {};
-      }
-      const code = authForm.code.trim();
-      if (!code || code.length < 4) {
-        setNotice('Enter the 4–8 digit verification code.');
-        return {};
-      }
-      setAuthPending(true);
-      try {
-        await verifyEmailOtp({ email, code, requestId: emailOtpRequestId });
-        return completeAuth({ email, name: authForm.name || deriveNameFromEmail(email) }, authMode);
-      } catch (error) {
-        setAuthPending(false);
-        setNotice(error?.message || 'Invalid or expired email code. Request a new one.');
-        return {};
-      }
-    }
-
     return {};
   }
 
@@ -333,25 +491,34 @@ export function AppProvider({ children }) {
       setNotice(`Verification code sent via SMS (demo): ${demoCode}`);
       return;
     }
+
     if (authMethod === 'email') {
       const email = authForm.email.trim().toLowerCase();
       if (!email.includes('@')) {
         setNotice('Enter a valid email address first.');
         return;
       }
-      setAuthPending(true);
-      try {
-        const response = await requestEmailOtp(email);
-        setOtpSent(true);
-        setExpectedCode('');
-        setEmailOtpRequestId(response.requestId || '');
-        setNotice(`Verification code sent to ${response.maskedEmail || email}.`);
-      } catch (error) {
-        setOtpSent(false);
-        setEmailOtpRequestId('');
-        setNotice(error?.message || 'Unable to send email code right now.');
-      } finally {
-        setAuthPending(false);
+
+      if (isSupabaseConfigured && supabase) {
+        setAuthPending(true);
+        try {
+          const { error } = await supabase.auth.signInWithOtp({
+            email,
+            options: {
+              shouldCreateUser: true,
+            },
+          });
+
+          if (error) throw error;
+
+          setOtpSent(true);
+          setNotice(`Verification code sent to ${email}.`);
+        } catch (error) {
+          setOtpSent(false);
+          setNotice(error?.message || 'Unable to send email code right now.');
+        } finally {
+          setAuthPending(false);
+        }
       }
     }
   }
@@ -382,7 +549,15 @@ export function AppProvider({ children }) {
     }
   }
 
-  function signOut() {
+  async function signOut() {
+    if (supabase && supabaseSession) {
+      await supabase.auth.signOut();
+      setSupabaseSession(null);
+      setSupabaseUser(null);
+      setSupabaseProfile(null);
+      setSupabaseBookings([]);
+    }
+
     setAppState((prev) => ({ ...prev, currentUserId: null, activeQuote: null }));
     setNotice('Signed out.');
   }
@@ -430,7 +605,7 @@ export function AppProvider({ children }) {
     }
 
     const quote = calculateQuote({
-      bookings: appState.bookings,
+      bookings: effectiveBookings,
       startDate,
       durationMinutes: Number(bookingForm.durationMinutes),
       now,
@@ -501,7 +676,7 @@ export function AppProvider({ children }) {
     }
 
     const recheck = calculateQuote({
-      bookings: appState.bookings,
+      bookings: effectiveBookings,
       startDate: new Date(quoteToConfirm.startISO),
       durationMinutes: quoteToConfirm.durationMinutes,
       now,
@@ -559,8 +734,35 @@ export function AppProvider({ children }) {
     return true;
   }
 
-  function cancelBooking(bookingId) {
+  async function cancelBooking(bookingId) {
     if (!currentUser) return;
+
+    if (supabase && supabaseCurrentUser) {
+      const { error } = await supabase
+        .from('bookings')
+        .update({ status: 'cancelled' })
+        .eq('id', bookingId)
+        .eq('user_id', currentUser.id);
+
+      if (error) {
+        setNotice(error.message || 'Unable to cancel booking right now.');
+        return;
+      }
+
+      await supabase
+        .from('equipment_reservations')
+        .update({ status: 'cancelled' })
+        .eq('booking_id', bookingId);
+
+      setSupabaseBookings((prev) => prev.map((booking) => (
+        booking.id === bookingId
+          ? { ...booking, status: 'cancelled', cancelledAt: now.toISOString() }
+          : booking
+      )));
+
+      setNotice('Booking cancelled.');
+      return;
+    }
 
     const booking = appState.bookings.find((b) => b.id === bookingId);
     if (!booking) return;
@@ -647,7 +849,7 @@ export function AppProvider({ children }) {
       const end = new Date(start.getTime() + 60 * 60_000);
 
       const occupancy = getOccupancyByBlock({
-        bookings: appState.bookings,
+        bookings: effectiveBookings,
         startDate: start,
         endDate: end,
         now,
@@ -660,7 +862,7 @@ export function AppProvider({ children }) {
       const occupancyMultiplier = getOccupancyMultiplier(nextOccupancy);
 
       const demandCount = getDemandCount({
-        bookings: appState.bookings,
+        bookings: effectiveBookings,
         targetStartDate: start,
         targetEndDate: end,
         now,
@@ -681,15 +883,15 @@ export function AppProvider({ children }) {
         isFull: maxExisting >= 5,
       };
     },
-    [appState.bookings, now, activeQuote],
+    [effectiveBookings, now, activeQuote],
   );
 
   const getSlotAvailabilityForDay = useCallback(
-    (dateInput) => getSlotAvailability({ bookings: appState.bookings, dateInput, now }),
-    [appState.bookings, now],
+    (dateInput) => getSlotAvailability({ bookings: effectiveBookings, dateInput, now }),
+    [effectiveBookings, now],
   );
 
-  function createManualBookings({ sessions, equipmentSelection, note, recurrence }) {
+  async function createManualBookings({ sessions, equipmentSelection, note, recurrence }) {
     if (!currentUser) {
       setNotice('Sign in first.');
       return { ok: false };
@@ -698,6 +900,86 @@ export function AppProvider({ children }) {
     if (!Array.isArray(sessions) || sessions.length === 0) {
       setNotice('No sessions to book.');
       return { ok: false };
+    }
+
+    if (supabase && supabaseCurrentUser) {
+      try {
+        let recurringGroupId = null;
+        if (recurrence?.frequency && recurrence.frequency !== 'none') {
+          const { data: recurringGroup, error: recurringError } = await supabase
+            .from('recurring_groups')
+            .insert({
+              user_id: currentUser.id,
+              pattern: 'time-series',
+              frequency: recurrence.frequency,
+              weekdays: recurrence.weekdays || [],
+              end_date: recurrence.endDate || null,
+              skip_dates: recurrence.skipDates || [],
+            })
+            .select('*')
+            .single();
+
+          if (recurringError) throw recurringError;
+          recurringGroupId = recurringGroup.id;
+        }
+
+        const payload = sessions.map((session) => ({
+          user_id: currentUser.id,
+          slot_date: session.dateInput,
+          start_time: padTime(session.timeInput),
+          end_time: addMinutesToTime(session.timeInput, session.durationMinutes),
+          duration_minutes: session.durationMinutes,
+          status: 'confirmed',
+          equipment_categories: equipmentSelection.categories || ['dont-know'],
+          equipment_items: equipmentSelection.items || [],
+          notes: note || null,
+          recurring_group_id: recurringGroupId,
+        }));
+
+        const { data: insertedBookings, error: insertError } = await supabase
+          .from('bookings')
+          .insert(payload)
+          .select('*, recurring_groups(*)');
+
+        if (insertError) throw insertError;
+
+        const reservationsPayload = (insertedBookings || []).flatMap((bookingRow) =>
+          (bookingRow.equipment_items || []).map((equipmentId) => ({
+            equipment_id: equipmentId,
+            booking_id: bookingRow.id,
+            slot_date: bookingRow.slot_date,
+            start_time: bookingRow.start_time,
+            end_time: bookingRow.end_time,
+            status: 'confirmed',
+          })),
+        );
+
+        if (reservationsPayload.length > 0) {
+          const { error: reservationError } = await supabase
+            .from('equipment_reservations')
+            .insert(reservationsPayload);
+
+          if (reservationError) {
+            console.warn('Unable to write equipment reservations:', reservationError.message);
+          }
+        }
+
+        setSupabaseBookings((prev) => {
+          const next = [...prev, ...(insertedBookings || []).map(mapSupabaseBooking)];
+          return next.sort(sortByStartDesc);
+        });
+
+        const count = insertedBookings?.length || sessions.length;
+        setNotice(
+          count > 1
+            ? `Recurring booking created (${count} sessions).`
+            : 'Booking confirmed.',
+        );
+        return { ok: true, count };
+      } catch (error) {
+        setNotice(error?.message || 'Unable to create booking right now.');
+        return { ok: false };
+      }
     }
 
     const seriesId = sessions.length > 1 ? `series-${Date.now()}` : null;
@@ -773,8 +1055,64 @@ export function AppProvider({ children }) {
     return { ok: true, count };
   }
 
-  function editBookingTime({ bookingId, newTimeInput, scope = 'one' }) {
+  async function editBookingTime({ bookingId, newTimeInput, scope = 'one' }) {
     if (!currentUser) return false;
+
+    if (supabase && supabaseCurrentUser) {
+      const target = myBookings.find((booking) => booking.id === bookingId);
+      if (!target || target.status !== 'confirmed') return false;
+
+      const candidates = scope === 'all' && target.recurrence?.seriesId
+        ? myBookings.filter((booking) => (
+          booking.status === 'confirmed'
+          && booking.recurrence?.seriesId === target.recurrence.seriesId
+          && new Date(booking.startISO) >= now
+        ))
+        : [target];
+
+      const updates = [];
+
+      for (const booking of candidates) {
+        const currentStart = new Date(booking.startISO);
+        const dateInput = `${currentStart.getFullYear()}-${String(currentStart.getMonth() + 1).padStart(2, '0')}-${String(currentStart.getDate()).padStart(2, '0')}`;
+        const nextStart = createLocalDate(dateInput, newTimeInput);
+        const nextEnd = new Date(nextStart.getTime() + booking.durationMinutes * 60_000);
+
+        const conflictCount = allBookings.filter((candidate) => {
+          if (candidate.id === booking.id || candidate.status !== 'confirmed') return false;
+          const cStart = new Date(candidate.startISO);
+          const cEnd = new Date(candidate.endISO);
+          return cStart < nextEnd && nextStart < cEnd;
+        }).length;
+
+        if (conflictCount >= SLOT_CAPACITY) continue;
+
+        updates.push({
+          id: booking.id,
+          slot_date: dateInput,
+          start_time: padTime(newTimeInput),
+          end_time: addMinutesToTime(newTimeInput, booking.durationMinutes),
+        });
+      }
+
+      if (updates.length === 0) {
+        setNotice('Unable to apply edit — selected slot is full.');
+        return false;
+      }
+
+      const { error } = await supabase
+        .from('bookings')
+        .upsert(updates, { onConflict: 'id' });
+
+      if (error) {
+        setNotice(error.message || 'Unable to update booking time right now.');
+        return false;
+      }
+
+      await hydrateSupabaseData();
+      setNotice(scope === 'all' ? `Updated ${updates.length} sessions in this series.` : 'Session updated.');
+      return true;
+    }
 
     let changedCount = 0;
 
@@ -820,7 +1158,6 @@ export function AppProvider({ children }) {
       } else {
         const one = next.bookings.find((booking) => booking.id === bookingId && booking.userId === currentUser.id);
         if (!one) return prev;
-        // retain date, change only time
         const nextStart = createLocalDate(targetDateInput, newTimeInput);
         const nextEnd = new Date(nextStart.getTime() + one.durationMinutes * 60_000);
 
@@ -865,6 +1202,7 @@ export function AppProvider({ children }) {
     pastBookings,
     allBookings,
     landingStats,
+    equipmentCategories,
 
     // Auth
     authMethod,

@@ -7,7 +7,7 @@ import SlotCardList from '../features/calendar-scheduler/components/SlotCardList
 import EquipmentSelector from '../features/calendar-scheduler/components/EquipmentSelector';
 import RecurrencePatternPanel from '../features/calendar-scheduler/components/RecurrencePatternPanel';
 import RecurrenceReview from '../features/calendar-scheduler/components/RecurrenceReview';
-import { EQUIPMENT_FLOW_CATEGORIES } from '../features/calendar-scheduler/config';
+
 import {
   getTwoWeekRange,
   generateRecurringSessions,
@@ -22,6 +22,7 @@ export default function SessionPage() {
     getSlotAvailabilityForDay,
     getBusyEquipment,
     createManualBookings,
+    equipmentCategories,
     setNotice,
   } = useApp();
 
@@ -142,7 +143,7 @@ export default function SessionPage() {
       }
 
       const allowedItems = new Set(
-        EQUIPMENT_FLOW_CATEGORIES
+        equipmentCategories
           .filter((category) => nextCategories.includes(category.id))
           .flatMap((category) => category.items.map((item) => item.id)),
       );
@@ -313,6 +314,7 @@ export default function SessionPage() {
             selection={equipmentSelection}
             onToggleCategory={handleToggleCategory}
             onToggleItem={handleToggleEquipment}
+            categories={equipmentCategories}
           />
 
           <label>

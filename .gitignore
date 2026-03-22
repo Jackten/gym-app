@@ -35,3 +35,5 @@ venv/
 # Misc
 .tmp/
 tmp/
+.env.local.d/
+supabase/.temp/

@@ -1,18 +1,23 @@
 import React, { useMemo } from 'react';
 import { EQUIPMENT_FLOW_CATEGORIES } from '../config';
 
-export default function EquipmentSelector({ selection, onToggleCategory, onToggleItem }) {
+export default function EquipmentSelector({
+  selection,
+  onToggleCategory,
+  onToggleItem,
+  categories = EQUIPMENT_FLOW_CATEGORIES,
+}) {
   const selectedCategories = selection.categories || [];
 
   const visibleCategories = useMemo(
-    () => EQUIPMENT_FLOW_CATEGORIES.filter((category) => selectedCategories.includes(category.id)),
-    [selectedCategories],
+    () => categories.filter((category) => selectedCategories.includes(category.id)),
+    [selectedCategories, categories],
   );
 
   return (
     <div className="equipment-picker-v2">
       <div className="equipment-categories">
-        {EQUIPMENT_FLOW_CATEGORIES.map((category) => (
+        {categories.map((category) => (
           <button
             key={category.id}
             type="button"
@@ -36,6 +41,8 @@ export default function EquipmentSelector({ selection, onToggleCategory, onToggl
                   type="button"
                   className={`eq-chip${selection.items.includes(item.id) ? ' on' : ''}`}
                   onClick={() => onToggleItem(item.id)}
+                  disabled={item.isAvailable === false}
+                  title={item.isAvailable === false ? 'Currently unavailable' : ''}
                 >
                   {item.label}
                 </button>

@@ -38,8 +38,8 @@ export default function BookingsPage() {
     setEditScope('one');
   }
 
-  function applyEdit(bookingId) {
-    const ok = editBookingTime({ bookingId, newTimeInput: editTime, scope: editScope });
+  async function applyEdit(bookingId) {
+    const ok = await editBookingTime({ bookingId, newTimeInput: editTime, scope: editScope });
     if (ok) setEditingId('');
   }
 
@@ -89,7 +89,10 @@ export default function BookingsPage() {
 
                   {isRecurring && (
                     <p className="muted" style={{ margin: '0 0 0.5rem', fontSize: '0.78rem' }}>
-                      Recurring series · occurrence {booking.recurrence.occurrenceIndex}/{booking.recurrence.totalOccurrences}
+                      {Number.isFinite(booking.recurrence?.occurrenceIndex)
+                      && Number.isFinite(booking.recurrence?.totalOccurrences)
+                        ? `Recurring series · occurrence ${booking.recurrence.occurrenceIndex}/${booking.recurrence.totalOccurrences}`
+                        : 'Recurring series'}
                     </p>
                   )}
 

@@ -49,6 +49,12 @@ function pickAuthProviders(authUser) {
   return authUser.app_metadata.providers;
 }
 
+function getOAuthRedirectUrl() {
+  if (typeof window === 'undefined') return undefined;
+  // HashRouter-safe callback: return to app origin/path and let auth state route to protected pages.
+  return `${window.location.origin}${window.location.pathname}`;
+}
+
 export function useApp() {
   const ctx = useContext(AppContext);
   if (!ctx) throw new Error('useApp must be used inside AppProvider');
@@ -346,7 +352,7 @@ export function AppProvider({ children }) {
         const { error } = await supabase.auth.signInWithOAuth({
           provider: 'google',
           options: {
-            redirectTo: window.location.href,
+            redirectTo: getOAuthRedirectUrl(),
           },
         });
 
@@ -376,6 +382,11 @@ export function AppProvider({ children }) {
             email,
             options: {
               shouldCreateUser: authMode === 'register',
+              emailRedirectTo: getOAuthRedirectUrl(),
+              data:
+                authMode === 'register' && authForm.name?.trim()
+                  ? { full_name: authForm.name.trim() }
+                  : undefined,
             },
           });
 
@@ -478,7 +489,7 @@ export function AppProvider({ children }) {
     return {};
   }
 
-  async function sendOtp(authForm) {
+  async function sendOtp(authForm, authMode = 'signin') {
     if (authMethod === 'phone') {
       const phone = normalizePhone(authForm.phone);
       if (!phone || phone.length < 8) {
@@ -505,7 +516,12 @@ export function AppProvider({ children }) {
           const { error } = await supabase.auth.signInWithOtp({
             email,
             options: {
-              shouldCreateUser: true,
+              shouldCreateUser: authMode === 'register',
+              emailRedirectTo: getOAuthRedirectUrl(),
+              data:
+                authMode === 'register' && authForm.name?.trim()
+                  ? { full_name: authForm.name.trim() }
+                  : undefined,
             },
           });
 
@@ -1100,14 +1116,44 @@ export function AppProvider({ children }) {
         return false;
       }
 
-      const { error } = await supabase
-        .from('bookings')
-        .upsert(updates, { onConflict: 'id' });
+      const bookingUpdateResults = await Promise.all(
+        updates.map(async (row) => {
+          const { error: updateError } = await supabase
+            .from('bookings')
+            .update({
+              slot_date: row.slot_date,
+              start_time: row.start_time,
+              end_time: row.end_time,
+            })
+            .eq('id', row.id)
+            .eq('user_id', currentUser.id);
 
-      if (error) {
-        setNotice(error.message || 'Unable to update booking time right now.');
+          return { id: row.id, error: updateError };
+        }),
+      );
+
+      const failedBookingUpdate = bookingUpdateResults.find((result) => result.error);
+      if (failedBookingUpdate) {
+        setNotice(failedBookingUpdate.error?.message || 'Unable to update booking time right now.');
         return false;
       }
+
+      await Promise.all(
+        updates.map(async (row) => {
+          const { error: reservationError } = await supabase
+            .from('equipment_reservations')
+            .update({
+              slot_date: row.slot_date,
+              start_time: row.start_time,
+              end_time: row.end_time,
+            })
+            .eq('booking_id', row.id);
+
+          if (reservationError) {
+            console.warn('Unable to update equipment reservations:', reservationError.message);
+          }
+        }),
+      );
 
       await hydrateSupabaseData();
       setNotice(scope === 'all' ? `Updated ${updates.length} sessions in this series.` : 'Session updated.');

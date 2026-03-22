@@ -233,7 +233,7 @@ export default function AuthPage() {
 
           <div className="auth-actions">
             {(authMethod === 'phone' || authMethod === 'email') && !otpSent && (
-              <button type="button" disabled={authPending} onClick={() => sendOtp(authForm)}>
+              <button type="button" disabled={authPending} onClick={() => sendOtp(authForm, authMode)}>
                 {`Send ${authMethod === 'phone' ? 'SMS' : 'Email'} Code`}
               </button>
             )}

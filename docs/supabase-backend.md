@@ -1,7 +1,7 @@
 # Supabase Backend Integration (Pelayo Wellness v1)
 
 Date: 2026-03-22  
-Status: Implemented in codebase, migration ready
+Status: Implemented in codebase, migration ready (auth/persistence verification pass completed)
 
 ## Overview
 This project now has a Supabase-backed path for:
@@ -100,18 +100,46 @@ Frontend now uses Supabase Auth for:
 - Email: `signInWithOtp` + `verifyOtp`
 - Session persistence: handled by Supabase JS client (`persistSession: true`)
 
-### Manual Google provider setup (Supabase dashboard)
-Because Google OAuth credentials are project-specific, complete this once in dashboard:
+### 2026-03-22 verification/fixes applied
+- **Google OAuth redirect hardened for HashRouter**
+  - Redirect now uses `window.location.origin + window.location.pathname` instead of the full hash URL.
+  - This avoids callback/hash conflicts and lets Supabase restore session cleanly before app routing.
+- **Email OTP sign-up metadata + mode-safe OTP creation**
+  - Register flow now sends `full_name` metadata during OTP request.
+  - OTP send now respects mode (`register` vs `signin`) for `shouldCreateUser`.
+- **Recurring booking edit fix under RLS**
+  - Booking edit switched from `upsert` to `update ... eq(id).eq(user_id)`.
+  - This avoids RLS failures (`new row violates row-level security policy`) during edit-time updates.
+- **Equipment reservation sync on booking-time edits**
+  - When booking times are changed, related `equipment_reservations` times are updated in the same flow.
+- **Bookings UI async fix**
+  - Booking edit submit now awaits async result before closing editor.
+  - Recurring label gracefully handles missing occurrence index metadata.
 
-1. Supabase Dashboard → **Authentication** → **Providers** → **Google**
-2. Enable Google provider
-3. Add Google OAuth Client ID + Secret
-4. Add redirect URLs:
-   - Local dev example: `http://localhost:5173`
-   - GitHub Pages production URL (actual site URL)
-5. Save and test sign-in
+### Manual Google provider setup (GCP + Supabase)
+Because Google OAuth credentials are project-specific, complete this once:
 
-> Google provider cannot be fully completed without those external OAuth credentials.
+1. In Google Cloud Console (project used by Pelayo services), configure OAuth consent screen:
+   - User Type: External (or Internal if restricted to workspace users)
+   - App name/email/support email
+   - Add test users if app is in Testing mode
+2. Create OAuth 2.0 Client ID (**Web application**)
+3. In the client settings, add:
+   - **Authorized JavaScript origins**
+     - `http://localhost:5173`
+     - `https://gym-app-navy-nine.vercel.app`
+   - **Authorized redirect URIs**
+     - `https://rgcnvghjmdkannkgocrj.supabase.co/auth/v1/callback`
+4. Copy Client ID + Client Secret
+5. In Supabase Dashboard → **Authentication** → **Providers** → **Google**:
+   - Enable Google
+   - Paste Client ID + Client Secret
+   - Save
+6. In Supabase Dashboard → **Authentication** → **URL Configuration** verify Site URL/additional redirect URLs include:
+   - `http://localhost:5173`
+   - `https://gym-app-navy-nine.vercel.app`
+
+> Supabase Management API automation for provider setup was not performed in this pass (no management PAT available in workspace env), so provider enablement remains a dashboard step.
 
 ### Email auth
 - Supabase email provider must be enabled (usually enabled by default).

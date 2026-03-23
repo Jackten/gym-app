@@ -268,7 +268,7 @@ export default function SessionPage() {
         <h2>Book a session</h2>
         <p className="muted section-desc">Select slot cards across one or more days, then confirm your booking in one action.</p>
 
-        <TwoWeekCalendar days={twoWeekDays} selectedDay={selectedDay} onSelectDay={handleSelectDay} />
+        <TwoWeekCalendar days={twoWeekDays} selectedDay={selectedDay} onSelectDay={handleSelectDay} daysWithSelections={selectedSlotsByDay} />
 
         <h4 style={{ marginTop: '1rem' }}>Available times</h4>
         <SlotCardList

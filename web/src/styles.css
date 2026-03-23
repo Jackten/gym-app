@@ -2436,12 +2436,17 @@ tbody tr:hover { background: rgba(15, 118, 110, 0.04); }
 }
 
 .slot-row.active {
-  background: var(--accent, #2d6a4f);
-  color: #fff;
+  background: var(--accent-glow);
+  border-left: 3px solid var(--accent-bright);
+  color: var(--text-primary);
+}
+
+.slot-row.active .slot-row-time {
+  color: var(--text-accent);
 }
 
 .slot-row.active .slot-row-status {
-  color: rgba(255,255,255,0.8);
+  color: var(--text-accent);
 }
 
 .slot-row.full {
@@ -2457,4 +2462,9 @@ tbody tr:hover { background: rgba(15, 118, 110, 0.04); }
 .slot-row-status {
   font-size: 0.78rem;
   color: var(--muted-foreground, #888);
+}
+
+.calendar-day-chip.has-selections {
+  border-color: var(--accent-border);
+  box-shadow: 0 0 0 1px var(--accent-border);
 }

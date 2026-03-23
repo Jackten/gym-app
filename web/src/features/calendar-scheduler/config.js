@@ -42,6 +42,12 @@ export const EQUIPMENT_FLOW_CATEGORIES = [
     ],
   },
   {
+    id: 'bodyweight',
+    label: 'Bodyweight',
+    icon: '💪',
+    items: [],
+  },
+  {
     id: 'functional',
     label: 'Functional',
     icon: '⚡',

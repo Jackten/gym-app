@@ -258,7 +258,7 @@ export default function SessionPage() {
     });
 
     if (!result.ok) return;
-    navigate('/bookings');
+    navigate('/bookings', { replace: true });
   }
 
   return (

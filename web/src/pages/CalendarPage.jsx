@@ -1,7 +1,8 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../contexts/AppContext';
-import { formatDateInput, formatDateTime } from '../lib/helpers';
+import { createLocalDate, formatDateInput, formatDateTime } from '../lib/helpers';
+import { SLOT_CAPACITY, SLOT_TEMPLATES } from '../features/calendar-scheduler/config';
 import { getTwoWeekRange } from '../features/calendar-scheduler/utils';
 
 export default function CalendarPage() {
@@ -13,8 +14,29 @@ export default function CalendarPage() {
 
   if (!currentUser) return null;
 
-  const daySummaries = twoWeekDays.map((day) => {
-    const slots = getSlotAvailabilityForDay(day.id);
+  const getNormalizedSlotsForDay = useCallback((dateInput) => {
+    const slotAvailability = getSlotAvailabilityForDay(dateInput);
+    const availabilityById = new Map(slotAvailability.map((slot) => [slot.id, slot]));
+
+    return SLOT_TEMPLATES.map((slotTemplate) => {
+      const matched = availabilityById.get(slotTemplate.id);
+      if (matched) return matched;
+
+      const start = createLocalDate(dateInput, slotTemplate.id);
+
+      return {
+        ...slotTemplate,
+        startISO: start.toISOString(),
+        isPast: start <= now,
+        reserved: 0,
+        remaining: SLOT_CAPACITY,
+        isFull: false,
+      };
+    });
+  }, [getSlotAvailabilityForDay, now]);
+
+  const daySummaries = useMemo(() => twoWeekDays.map((day) => {
+    const slots = getNormalizedSlotsForDay(day.id);
     const openSlots = slots.filter((slot) => !slot.isPast && !slot.isFull).length;
     const fullSlots = slots.filter((slot) => slot.isFull).length;
     const myBookingsCount = upcomingBookings.filter((booking) => booking.startISO.startsWith(day.id)).length;
@@ -25,9 +47,12 @@ export default function CalendarPage() {
       fullSlots,
       myBookingsCount,
     };
-  });
+  }), [twoWeekDays, getNormalizedSlotsForDay, upcomingBookings]);
 
-  const selectedSlots = getSlotAvailabilityForDay(selectedDay);
+  const selectedSlots = useMemo(
+    () => getNormalizedSlotsForDay(selectedDay),
+    [getNormalizedSlotsForDay, selectedDay],
+  );
   const selectedDayBookings = allBookings
     .filter((booking) => booking.status === 'confirmed' && booking.startISO?.startsWith(selectedDay))
     .sort((a, b) => new Date(a.startISO) - new Date(b.startISO));

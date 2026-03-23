@@ -74,7 +74,7 @@ export function AppProvider({ children }) {
   const [supabaseEquipment, setSupabaseEquipment] = useState([]);
 
   // Auth UI state
-  const [authMethod, setAuthMethod] = useState('passkey');
+  const [authMethod, setAuthMethod] = useState('');
   const [authPending, setAuthPending] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
   const [expectedCode, setExpectedCode] = useState('');
@@ -346,6 +346,11 @@ export function AppProvider({ children }) {
   async function handleAuthSubmit(authForm, authMode) {
     if (authPending) return {};
 
+    if (!authMethod) {
+      setNotice('Select a sign-in method to continue.');
+      return {};
+    }
+
     if (isSupabaseConfigured && supabase && authMethod === 'google') {
       setAuthPending(true);
       try {
@@ -490,6 +495,11 @@ export function AppProvider({ children }) {
   }
 
   async function sendOtp(authForm, authMode = 'signin') {
+    if (!authMethod) {
+      setNotice('Select a sign-in method first.');
+      return;
+    }
+
     if (authMethod === 'phone') {
       const phone = normalizePhone(authForm.phone);
       if (!phone || phone.length < 8) {

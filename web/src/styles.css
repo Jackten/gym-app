@@ -636,6 +636,19 @@ input::placeholder { color: #475569; }
 
 .auth-method:hover { border-color: var(--border-hover); background: rgba(15, 23, 42, 0.6); }
 
+.auth-method.disabled,
+.auth-method:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  border-style: dashed;
+}
+
+.auth-method.disabled:hover,
+.auth-method:disabled:hover {
+  border-color: var(--border-default);
+  background: var(--bg-inset);
+}
+
 .auth-method.active {
   border-color: var(--accent-border);
   background: var(--accent-glow);

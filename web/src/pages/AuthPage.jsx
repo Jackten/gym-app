@@ -14,12 +14,10 @@ export default function AuthPage() {
     setAuthMethod,
     authPending,
     otpSent,
-    setOtpSent,
     resetAuthState,
     handleAuthSubmit,
     sendOtp,
     connectWallet,
-    setNotice,
   } = useApp();
 
   const [authForm, setAuthForm] = useState(EMPTY_AUTH_FORM);
@@ -34,6 +32,7 @@ export default function AuthPage() {
   // Reset state when switching modes
   useEffect(() => {
     resetAuthState();
+    setAuthMethod('');
     setAuthForm(EMPTY_AUTH_FORM);
   }, [authMode]);
 
@@ -70,8 +69,11 @@ export default function AuthPage() {
           {AUTH_METHODS.map((method) => (
             <button
               key={method.id}
-              className={`auth-method${authMethod === method.id ? ' active' : ''}`}
+              type="button"
+              className={`auth-method${authMethod === method.id ? ' active' : ''}${method.comingSoon ? ' disabled' : ''}`}
               onClick={() => onMethodChange(method.id)}
+              disabled={method.comingSoon}
+              aria-disabled={method.comingSoon}
             >
               <strong>
                 {method.icon} {method.title}
@@ -82,7 +84,13 @@ export default function AuthPage() {
         </div>
 
         <form className="auth-form" onSubmit={onSubmit}>
-          {authMode === 'register' && (
+          {!authMethod && (
+            <p className="muted" style={{ margin: 0 }}>
+              Select a sign-in method above to continue.
+            </p>
+          )}
+
+          {authMethod && authMode === 'register' && (
             <label>
               Full name
               <input
@@ -94,22 +102,6 @@ export default function AuthPage() {
             </label>
           )}
 
-          {authMethod === 'passkey' && (
-            <>
-              <label>
-                Account email
-                <input
-                  type="email"
-                  value={authForm.email}
-                  onChange={(e) => setAuthForm((p) => ({ ...p, email: e.target.value }))}
-                  placeholder="you@example.com"
-                />
-              </label>
-              <p className="muted" style={{ margin: 0, fontSize: '0.8rem' }}>
-                Prototype note: passkey flow is mocked and uses email identity.
-              </p>
-            </>
-          )}
 
           {authMethod === 'google' && (
             <p className="muted" style={{ margin: 0, fontSize: '0.9rem' }}>
@@ -201,22 +193,29 @@ export default function AuthPage() {
                 />
               </label>
               {otpSent && (
-                <label>
-                  Magic code
-                  <input
-                    type="text"
-                    value={authForm.code}
-                    onChange={(e) => setAuthForm((p) => ({ ...p, code: e.target.value }))}
-                    placeholder="Enter verification code"
-                    autoFocus
-                  />
-                </label>
+                <>
+                  <label>
+                    Magic code
+                    <input
+                      type="text"
+                      value={authForm.code}
+                      onChange={(e) => setAuthForm((p) => ({ ...p, code: e.target.value }))}
+                      placeholder="Enter verification code"
+                      autoFocus
+                    />
+                  </label>
+                  {authMode === 'register' && (
+                    <p className="muted" style={{ margin: 0, fontSize: '0.82rem' }}>
+                      Check your email for the verification code before creating your account.
+                    </p>
+                  )}
+                </>
               )}
             </>
           )}
 
           {/* Waiver for registration */}
-          {authMode === 'register' && (
+          {authMethod && authMode === 'register' && (
             <label className="waiver-check">
               <input
                 type="checkbox"
@@ -240,7 +239,7 @@ export default function AuthPage() {
             <button
               type="submit"
               className="btn-primary"
-              disabled={authPending || (authMode === 'register' && !authForm.waiverAccepted)}
+              disabled={authPending || !authMethod || (authMode === 'register' && !authForm.waiverAccepted)}
             >
               {authPending ? 'Processing…' : actionLabel}
             </button>

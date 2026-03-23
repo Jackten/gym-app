@@ -10,7 +10,13 @@ export const WORKOUT_TYPES = [
 ];
 
 export const AUTH_METHODS = [
-  { id: 'passkey', title: 'Passkey', subtitle: 'Fast sign in with your device', icon: '🗝️' },
+  {
+    id: 'passkey',
+    title: 'Passkey',
+    subtitle: 'Coming soon',
+    icon: '🗝️',
+    comingSoon: true,
+  },
   { id: 'google', title: 'Google', subtitle: 'Continue with your Google account', icon: '🔑' },
   { id: 'ethereum', title: 'Ethereum', subtitle: 'Connect wallet to sign in', icon: '⬡' },
   { id: 'phone', title: 'Phone', subtitle: 'SMS verification code', icon: '📱' },

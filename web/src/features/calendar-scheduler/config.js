@@ -34,11 +34,8 @@ export const EQUIPMENT_FLOW_CATEGORIES = [
     label: 'Weights',
     icon: '🏋️',
     items: [
-      { id: 'barbell-1', label: 'Barbell 1' },
-      { id: 'barbell-2', label: 'Barbell 2' },
-      { id: 'barbell-3', label: 'Barbell 3' },
-      { id: 'bench-1', label: 'Bench 1' },
-      { id: 'bench-2', label: 'Bench 2' },
+      { id: 'barbell', label: 'Barbell' },
+      { id: 'bench', label: 'Bench' },
       { id: 'cable-machine', label: 'Cable machine' },
       { id: 'dumbbell', label: 'Dumbbells' },
       { id: 'kettlebell', label: 'Kettlebell' },
@@ -60,8 +57,7 @@ export const EQUIPMENT_FLOW_CATEGORIES = [
     label: 'Boxing',
     icon: '🥊',
     items: [
-      { id: 'punching-bag-1', label: 'Punching bag 1' },
-      { id: 'punching-bag-2', label: 'Punching bag 2' },
+      { id: 'punching-bag', label: 'Punching bag' },
       { id: 'speed-bag', label: 'Speed bag' },
     ],
   },

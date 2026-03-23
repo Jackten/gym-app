@@ -2419,20 +2419,21 @@ tbody tr:hover { background: rgba(15, 118, 110, 0.04); }
   align-items: center;
   justify-content: space-between;
   padding: 0.85rem 1rem;
-  background: var(--card-bg, #fff);
+  background: var(--surface, #1a1f2e);
   border: none;
+  border-left: 3px solid transparent;
   cursor: pointer;
   font-size: 1rem;
-  transition: background 0.12s;
+  transition: background 0.12s, border-color 0.12s;
   min-height: 48px;
 }
 
 .slot-row:not(:last-child) {
-  border-bottom: 1px solid var(--border, #f0f0f0);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
 }
 
 .slot-row:hover:not(:disabled) {
-  background: var(--secondary, #f5f5f5);
+  background: rgba(255,255,255,0.06);
 }
 
 .slot-row.active {
@@ -2461,7 +2462,11 @@ tbody tr:hover { background: rgba(15, 118, 110, 0.04); }
 
 .slot-row-status {
   font-size: 0.78rem;
-  color: var(--muted-foreground, #888);
+  color: var(--text-muted, #888);
+}
+
+.slot-list-compact {
+  border-color: rgba(255,255,255,0.08);
 }
 
 .calendar-day-chip.has-selections {

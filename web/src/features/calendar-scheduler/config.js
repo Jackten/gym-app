@@ -19,6 +19,17 @@ export const EQUIPMENT_FLOW_CATEGORIES = [
     items: [],
   },
   {
+    id: 'cardio',
+    label: 'Cardio',
+    icon: '🫀',
+    items: [
+      { id: 'treadmill', label: 'Treadmill' },
+      { id: 'assault-bike', label: 'Assault bike' },
+      { id: 'row-machine', label: 'Row machine' },
+      { id: 'ski-erg', label: 'Ski erg' },
+    ],
+  },
+  {
     id: 'weights',
     label: 'Weights',
     icon: '🏋️',
@@ -29,6 +40,19 @@ export const EQUIPMENT_FLOW_CATEGORIES = [
       { id: 'bench-1', label: 'Bench 1' },
       { id: 'bench-2', label: 'Bench 2' },
       { id: 'cable-machine', label: 'Cable machine' },
+      { id: 'dumbbell', label: 'Dumbbells' },
+      { id: 'kettlebell', label: 'Kettlebell' },
+    ],
+  },
+  {
+    id: 'bodyweight',
+    label: 'Bodyweight',
+    icon: '💪',
+    items: [
+      { id: 'pull-up-bar', label: 'Pull-up bar' },
+      { id: 'rings', label: 'Rings' },
+      { id: 'dip-station', label: 'Dip station' },
+      { id: 'mat', label: 'Mat area' },
     ],
   },
   {
@@ -42,17 +66,15 @@ export const EQUIPMENT_FLOW_CATEGORIES = [
     ],
   },
   {
-    id: 'bodyweight',
-    label: 'Bodyweight',
-    icon: '💪',
-    items: [],
-  },
-  {
     id: 'functional',
     label: 'Functional',
     icon: '⚡',
     items: [
       { id: 'box-jump', label: 'Box jump box' },
+      { id: 'sled', label: 'Sled' },
+      { id: 'battle-ropes', label: 'Battle ropes' },
+      { id: 'sandbags', label: 'Sandbags' },
+      { id: 'med-ball', label: 'Medicine balls' },
     ],
   },
   {

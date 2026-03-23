@@ -28,6 +28,11 @@ import {
   buildProfileFromAuth,
   buildEquipmentCategories,
 } from '../lib/supabaseBackend';
+import {
+  registerPasskeyCeremony,
+  loginWithPasskeyCeremony,
+  getPasskeyErrorMessage,
+} from '../lib/passkeyAuth';
 
 const AppContext = createContext(null);
 
@@ -55,6 +60,21 @@ function getOAuthRedirectUrl() {
   return `${window.location.origin}${window.location.pathname}`;
 }
 
+function browserSupportsWebAuthn() {
+  if (typeof window === 'undefined') return false;
+  return Boolean(window.PublicKeyCredential && navigator.credentials);
+}
+
+function passkeyFriendlyName() {
+  const stamp = new Date().toLocaleString([], {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+  return `Pelayo Passkey (${stamp})`;
+}
+
 export function useApp() {
   const ctx = useContext(AppContext);
   if (!ctx) throw new Error('useApp must be used inside AppProvider');
@@ -78,8 +98,12 @@ export function AppProvider({ children }) {
   const [authPending, setAuthPending] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
   const [expectedCode, setExpectedCode] = useState('');
-  const [emailOtpRequestId, setEmailOtpRequestId] = useState('');
   const [registrationResult, setRegistrationResult] = useState(null);
+
+  const [passkeyFactors, setPasskeyFactors] = useState([]);
+  const [passkeyLoading, setPasskeyLoading] = useState(false);
+  const [passkeyActionState, setPasskeyActionState] = useState('idle');
+  const [passkeyActionError, setPasskeyActionError] = useState('');
 
   const now = useMemo(
     () => new Date(nowMs + (appState.clockOffsetMinutes || 0) * 60_000),
@@ -216,6 +240,7 @@ export function AppProvider({ children }) {
       if (!session?.user) {
         setSupabaseProfile(null);
         setSupabaseBookings([]);
+        setPasskeyFactors([]);
       }
     });
 
@@ -230,6 +255,7 @@ export function AppProvider({ children }) {
 
     ensureSupabaseProfile().finally(() => {
       hydrateSupabaseData();
+      loadPasskeyFactors();
     });
   }, [supabaseUser, ensureSupabaseProfile, hydrateSupabaseData]);
 
@@ -286,7 +312,145 @@ export function AppProvider({ children }) {
     setAuthPending(false);
     setOtpSent(false);
     setExpectedCode('');
-    setEmailOtpRequestId('');
+    setPasskeyActionState('idle');
+    setPasskeyActionError('');
+  }
+
+  async function loadPasskeyFactors() {
+    if (!supabase || !supabaseUser) {
+      setPasskeyFactors([]);
+      return [];
+    }
+
+    setPasskeyLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('passkey_credentials')
+        .select('id, credential_id, friendly_name, device_type, backed_up, transports, created_at, last_used_at')
+        .eq('user_id', supabaseUser.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const factors = (data || []).map((row) => ({
+        id: row.id,
+        credentialId: row.credential_id,
+        friendly_name: row.friendly_name,
+        status: 'verified',
+        device_type: row.device_type,
+        backed_up: row.backed_up,
+        transports: row.transports || [],
+        created_at: row.created_at,
+        last_used_at: row.last_used_at,
+      }));
+
+      setPasskeyFactors(factors);
+      return factors;
+    } catch (error) {
+      setPasskeyFactors([]);
+      setPasskeyActionError(error?.message || 'Unable to load passkeys right now.');
+      return [];
+    } finally {
+      setPasskeyLoading(false);
+    }
+  }
+
+  async function registerPasskey(friendlyNameInput = '') {
+    if (!supabase || !supabaseUser) {
+      setNotice('Sign in first to register a passkey.');
+      return { ok: false };
+    }
+
+    if (!browserSupportsWebAuthn()) {
+      setNotice('This browser does not support passkeys/WebAuthn.');
+      return { ok: false };
+    }
+
+    const friendlyName = friendlyNameInput?.trim() || passkeyFriendlyName();
+
+    setPasskeyActionError('');
+    setPasskeyActionState('enrolling');
+
+    try {
+      setPasskeyActionState('challenging');
+      await registerPasskeyCeremony({
+        supabase,
+        friendlyName,
+      });
+
+      setPasskeyActionState('verifying');
+      await loadPasskeyFactors();
+      setPasskeyActionState('idle');
+      setNotice('Passkey registered successfully.');
+      return { ok: true };
+    } catch (error) {
+      setPasskeyActionState('idle');
+      const message = getPasskeyErrorMessage(error, 'Unable to register passkey right now.');
+      setPasskeyActionError(message);
+      setNotice(message);
+      await loadPasskeyFactors();
+      return { ok: false, error };
+    }
+  }
+
+  async function verifyPasskeyForCurrentSession() {
+    if (!supabase) {
+      return { ok: false, message: 'Passkey sign-in is unavailable right now.' };
+    }
+
+    if (!browserSupportsWebAuthn()) {
+      return { ok: false, message: 'This browser does not support passkeys/WebAuthn.' };
+    }
+
+    try {
+      setPasskeyActionError('');
+      setPasskeyActionState('challenging');
+
+      const payload = await loginWithPasskeyCeremony({ supabase });
+
+      setPasskeyActionState('verifying');
+      const { error: sessionError } = await supabase.auth.setSession({
+        access_token: payload.session.access_token,
+        refresh_token: payload.session.refresh_token,
+      });
+
+      if (sessionError) throw sessionError;
+
+      setPasskeyActionState('idle');
+      return { ok: true };
+    } catch (error) {
+      setPasskeyActionState('idle');
+      const message = getPasskeyErrorMessage(error, 'Passkey verification failed.');
+      setPasskeyActionError(message);
+      return { ok: false, message };
+    }
+  }
+
+  async function removePasskey(factorId) {
+    if (!supabase || !supabaseUser || !factorId) return { ok: false };
+
+    setPasskeyActionError('');
+    setPasskeyActionState('verifying');
+    try {
+      const { error } = await supabase
+        .from('passkey_credentials')
+        .delete()
+        .eq('id', factorId)
+        .eq('user_id', supabaseUser.id);
+
+      if (error) throw error;
+
+      await loadPasskeyFactors();
+      setNotice('Passkey removed.');
+      return { ok: true };
+    } catch (error) {
+      const message = error?.message || 'Unable to remove passkey right now.';
+      setPasskeyActionError(message);
+      setNotice(message);
+      return { ok: false, error };
+    } finally {
+      setPasskeyActionState('idle');
+    }
   }
 
   function completeAuth(identityInput, authMode) {
@@ -434,18 +598,37 @@ export function AppProvider({ children }) {
       }
     }
 
-    if (authMethod === 'passkey') {
-      const email = authForm.email.trim().toLowerCase();
-      if (!email.includes('@')) {
-        setNotice('Passkey sign in needs a valid account email in this prototype.');
+    if (isSupabaseConfigured && supabase && authMethod === 'passkey') {
+      if (!browserSupportsWebAuthn()) {
+        setNotice('This browser does not support passkeys/WebAuthn.');
         return {};
       }
+
+      if (authMode === 'register') {
+        setNotice('Create your account with email or Google first, then add a passkey in Account.');
+        return {};
+      }
+
       setAuthPending(true);
-      await new Promise((r) => setTimeout(r, 450));
-      return completeAuth(
-        { email, name: authForm.name.trim() || deriveNameFromEmail(email) },
-        authMode,
-      );
+      try {
+        const passkeyResult = await verifyPasskeyForCurrentSession();
+        if (!passkeyResult.ok) {
+          setPasskeyActionState('idle');
+          setNotice(passkeyResult.message || 'Passkey verification failed.');
+          return {};
+        }
+
+        await hydrateSupabaseData();
+        resetAuthState();
+        setNotice('Signed in with passkey. Welcome back.');
+        return { redirect: '/home', success: true };
+      } catch (error) {
+        setPasskeyActionState('idle');
+        setNotice(error?.message || 'Passkey sign-in failed. Try email or Google.');
+        return {};
+      } finally {
+        setAuthPending(false);
+      }
     }
 
     if (authMethod === 'ethereum') {
@@ -582,8 +765,11 @@ export function AppProvider({ children }) {
       setSupabaseUser(null);
       setSupabaseProfile(null);
       setSupabaseBookings([]);
+      setPasskeyFactors([]);
     }
 
+    setPasskeyActionState('idle');
+    setPasskeyActionError('');
     setAppState((prev) => ({ ...prev, currentUserId: null, activeQuote: null }));
     setNotice('Signed out.');
   }
@@ -1273,6 +1459,15 @@ export function AppProvider({ children }) {
     signOut,
     registrationResult,
     setRegistrationResult,
+    passkeySupported: browserSupportsWebAuthn(),
+    passkeyFactors,
+    passkeyLoading,
+    passkeyActionState,
+    passkeyActionError,
+    loadPasskeyFactors,
+    registerPasskey,
+    verifyPasskeyForCurrentSession,
+    removePasskey,
 
     // Booking
     buildQuote,

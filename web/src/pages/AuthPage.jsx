@@ -18,6 +18,9 @@ export default function AuthPage() {
     handleAuthSubmit,
     sendOtp,
     connectWallet,
+    passkeySupported,
+    passkeyActionState,
+    passkeyActionError,
   } = useApp();
 
   const [authForm, setAuthForm] = useState(EMPTY_AUTH_FORM);
@@ -37,7 +40,11 @@ export default function AuthPage() {
   }, [authMode]);
 
   const copy = AUTH_VIEW_COPY[authMode];
-  const actionLabel = authMode === 'register' ? 'Create account' : 'Sign in';
+  const actionLabel = authMethod === 'passkey'
+    ? 'Sign in with passkey'
+    : authMode === 'register'
+      ? 'Create account'
+      : 'Sign in';
 
   async function onSubmit(e) {
     e?.preventDefault();
@@ -66,21 +73,26 @@ export default function AuthPage() {
         </div>
 
         <div className="auth-methods">
-          {AUTH_METHODS.map((method) => (
+          {AUTH_METHODS.map((method) => {
+            const disabled = method.comingSoon
+              || (method.id === 'passkey' && (!passkeySupported || authMode === 'register'));
+
+            return (
             <button
               key={method.id}
               type="button"
-              className={`auth-method${authMethod === method.id ? ' active' : ''}${method.comingSoon ? ' disabled' : ''}`}
+              className={`auth-method${authMethod === method.id ? ' active' : ''}${disabled ? ' disabled' : ''}`}
               onClick={() => onMethodChange(method.id)}
-              disabled={method.comingSoon}
-              aria-disabled={method.comingSoon}
+              disabled={disabled}
+              aria-disabled={disabled}
             >
               <strong>
                 {method.icon} {method.title}
               </strong>
               <span>{method.subtitle}</span>
             </button>
-          ))}
+            );
+          })}
         </div>
 
         <form className="auth-form" onSubmit={onSubmit}>
@@ -107,6 +119,23 @@ export default function AuthPage() {
             <p className="muted" style={{ margin: 0, fontSize: '0.9rem' }}>
               You&apos;ll continue with Google in a secure Supabase popup.
             </p>
+          )}
+
+          {authMethod === 'passkey' && (
+            <>
+              <p className="muted" style={{ margin: 0, fontSize: '0.82rem' }}>
+                One tap. No email code. Authenticate with your saved passkey.
+              </p>
+              {passkeyActionState !== 'idle' && (
+                <p className="muted" style={{ margin: 0, fontSize: '0.82rem' }}>
+                  {passkeyActionState === 'challenging' && 'Waiting for your passkey…'}
+                  {passkeyActionState === 'verifying' && 'Verifying passkey…'}
+                </p>
+              )}
+              {passkeyActionError && (
+                <p style={{ margin: 0, color: '#fca5a5', fontSize: '0.82rem' }}>{passkeyActionError}</p>
+              )}
+            </>
           )}
 
           {authMethod === 'ethereum' && (

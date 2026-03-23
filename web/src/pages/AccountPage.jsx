@@ -1,17 +1,45 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../contexts/AppContext';
 import { toTitleCase, abbreviateWallet } from '../lib/helpers';
 
 export default function AccountPage() {
-  const { currentUser, signOut } = useApp();
+  const {
+    currentUser,
+    signOut,
+    passkeySupported,
+    passkeyFactors,
+    passkeyLoading,
+    passkeyActionState,
+    passkeyActionError,
+    loadPasskeyFactors,
+    registerPasskey,
+    removePasskey,
+  } = useApp();
   const navigate = useNavigate();
+  const [passkeyName, setPasskeyName] = useState('');
+
+  useEffect(() => {
+    if (currentUser) {
+      loadPasskeyFactors();
+    }
+  }, [currentUser]);
 
   if (!currentUser) return null;
 
   const authProviders = Array.isArray(currentUser.authProviders)
     ? currentUser.authProviders
     : [];
+
+  const effectiveProviders = (() => {
+    const unique = new Set(authProviders);
+    if ((passkeyFactors || []).some((factor) => factor.status === 'verified')) {
+      unique.add('passkey');
+    }
+    return [...unique];
+  })();
+
+  const hasPasskeys = passkeyFactors.length > 0;
 
   return (
     <div className="page-account">
@@ -57,9 +85,9 @@ export default function AccountPage() {
       {/* Auth Methods */}
       <section className="card">
         <h3>Authentication Methods</h3>
-        {authProviders.length > 0 ? (
+        {effectiveProviders.length > 0 ? (
           <div className="auth-providers-list">
-            {authProviders.map((provider) => (
+            {effectiveProviders.map((provider) => (
               <div key={provider} className="auth-provider-row">
                 <span className="auth-provider-icon">
                   {provider === 'passkey'
@@ -79,6 +107,89 @@ export default function AccountPage() {
           </div>
         ) : (
           <p className="muted">No authentication methods linked.</p>
+        )}
+      </section>
+
+      {/* Passkeys */}
+      <section className="card">
+        <h3>Passkeys</h3>
+        {!passkeySupported ? (
+          <p className="muted">This browser doesn&apos;t support passkeys/WebAuthn.</p>
+        ) : (
+          <>
+            <p className="muted section-desc" style={{ marginBottom: '0.65rem' }}>
+              Register passkeys to enable one-tap sign-in on supported devices.
+            </p>
+
+            <label>
+              Passkey name (optional)
+              <input
+                type="text"
+                value={passkeyName}
+                onChange={(e) => setPasskeyName(e.target.value)}
+                placeholder="e.g. Jack's MacBook"
+              />
+            </label>
+
+            <div className="row" style={{ marginTop: '0.5rem', marginBottom: '0.75rem' }}>
+              <button
+                type="button"
+                onClick={() => registerPasskey(passkeyName)}
+                disabled={passkeyLoading || passkeyActionState !== 'idle'}
+              >
+                {passkeyActionState === 'enrolling'
+                  ? 'Enrolling…'
+                  : passkeyActionState === 'challenging'
+                    ? 'Waiting for passkey…'
+                    : passkeyActionState === 'verifying'
+                      ? 'Verifying…'
+                      : 'Register new passkey'}
+              </button>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => loadPasskeyFactors()}
+                disabled={passkeyLoading || passkeyActionState !== 'idle'}
+              >
+                Refresh
+              </button>
+            </div>
+
+            {passkeyActionError && (
+              <p style={{ margin: '0 0 0.75rem', color: '#fca5a5', fontSize: '0.82rem' }}>
+                {passkeyActionError}
+              </p>
+            )}
+
+            {passkeyLoading ? (
+              <p className="muted">Loading passkeys…</p>
+            ) : hasPasskeys ? (
+              <div className="auth-providers-list">
+                {passkeyFactors.map((factor) => (
+                  <div key={factor.id} className="auth-provider-row">
+                    <span className="auth-provider-icon">🗝️</span>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem' }}>
+                      <span>{factor.friendly_name || 'Passkey'}</span>
+                      <span className="muted" style={{ fontSize: '0.72rem' }}>
+                        {factor.status === 'verified' ? 'Verified' : 'Pending verification'}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      style={{ marginLeft: 'auto' }}
+                      onClick={() => removePasskey(factor.id)}
+                      disabled={passkeyActionState !== 'idle'}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="muted">No passkeys registered yet.</p>
+            )}
+          </>
         )}
       </section>
 

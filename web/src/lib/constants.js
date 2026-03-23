@@ -13,9 +13,9 @@ export const AUTH_METHODS = [
   {
     id: 'passkey',
     title: 'Passkey',
-    subtitle: 'Coming soon',
+    subtitle: 'One-tap sign-in with your device passkey',
     icon: '🗝️',
-    comingSoon: true,
+    comingSoon: false,
   },
   { id: 'google', title: 'Google', subtitle: 'Continue with your Google account', icon: '🔑' },
   { id: 'ethereum', title: 'Ethereum', subtitle: 'Connect wallet to sign in', icon: '⬡' },

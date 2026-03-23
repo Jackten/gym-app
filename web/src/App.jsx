@@ -1,5 +1,5 @@
 import React from 'react';
-import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation, Link } from 'react-router-dom';
 import { useApp } from './contexts/AppContext';
 import BottomNav from './components/BottomNav';
 import Notice from './components/Notice';
@@ -84,8 +84,8 @@ export default function App() {
               </div>
             ) : (
               <div className="topbar-actions">
-                <a href="#/signin" className="topbar-link">Sign in</a>
-                <a href="#/register" className="btn-primary topbar-btn">Get started</a>
+                <Link to="/signin" className="topbar-link">Sign in</Link>
+                <Link to="/register" className="btn-primary topbar-btn">Get started</Link>
               </div>
             )}
           </header>
@@ -98,7 +98,7 @@ export default function App() {
             <header className="topbar topbar-inner">
               <div className="topbar-brand">
                 <h1>
-                  <a href="#/home" className="topbar-home-link">Pelayo Wellness</a>
+                  <Link to="/home" className="topbar-home-link">Pelayo Wellness</Link>
                 </h1>
               </div>
               {currentUser && (

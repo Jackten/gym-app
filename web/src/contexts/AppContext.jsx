@@ -51,7 +51,7 @@ function pickAuthProviders(authUser) {
 
 function getOAuthRedirectUrl() {
   if (typeof window === 'undefined') return undefined;
-  // HashRouter-safe callback: return to app origin/path and let auth state route to protected pages.
+  // BrowserRouter callback: return to current app path and let auth state route to protected pages.
   return `${window.location.origin}${window.location.pathname}`;
 }
 

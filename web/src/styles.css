@@ -2418,12 +2418,13 @@ tbody tr:hover { background: rgba(15, 118, 110, 0.04); }
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.6rem 0.85rem;
+  padding: 0.85rem 1rem;
   background: var(--card-bg, #fff);
   border: none;
   cursor: pointer;
-  font-size: 0.9rem;
+  font-size: 1rem;
   transition: background 0.12s;
+  min-height: 48px;
 }
 
 .slot-row:not(:last-child) {
@@ -2443,14 +2444,14 @@ tbody tr:hover { background: rgba(15, 118, 110, 0.04); }
   color: rgba(255,255,255,0.8);
 }
 
-.slot-row.full,
-.slot-row.past {
+.slot-row.full {
   opacity: 0.4;
   cursor: not-allowed;
 }
 
 .slot-row-time {
   font-weight: 600;
+  font-size: 1.05rem;
 }
 
 .slot-row-status {

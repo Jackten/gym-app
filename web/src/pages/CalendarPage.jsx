@@ -68,25 +68,19 @@ export default function CalendarPage() {
           Browse bookings and availability at a glance. Use Book a session when you&apos;re ready to reserve.
         </p>
 
-        <div className="calendar-grid-2w">
+        <div className="calendar-strip">
           {daySummaries.map((day) => {
             const isActive = day.id === selectedDay;
             return (
               <button
                 key={day.id}
                 type="button"
-                className={`calendar-day-card${isActive ? ' active' : ''}`}
+                className={`calendar-day-chip${isActive ? ' active' : ''}`}
                 onClick={() => setSelectedDay(day.id)}
               >
-                <div>
-                  <p className="calendar-day-name">{day.dayName}</p>
-                  <strong>{day.monthDay}</strong>
-                </div>
-                <div className="calendar-day-metrics">
-                  <span>Open: {day.openSlots}</span>
-                  <span>Full: {day.fullSlots}</span>
-                  <span>Mine: {day.myBookingsCount}</span>
-                </div>
+                <span>{day.dayName}</span>
+                <strong>{day.monthDay}</strong>
+                {day.myBookingsCount > 0 && <span className="day-chip-badge">{day.myBookingsCount}</span>}
               </button>
             );
           })}

@@ -26,6 +26,21 @@ function RequireAuth({ children }) {
   return children;
 }
 
+function RequireAdmin({ children }) {
+  const { currentUser, isAdmin } = useApp();
+  const location = useLocation();
+
+  if (!currentUser) {
+    return <Navigate to="/signin" state={{ from: location }} replace />;
+  }
+
+  if (!isAdmin) {
+    return <Navigate to="/home" replace />;
+  }
+
+  return children;
+}
+
 function AppHeader() {
   const { currentUser, signOut } = useApp();
   const location = useLocation();
@@ -180,9 +195,9 @@ export default function App() {
             <Route
               path="/admin"
               element={
-                <RequireAuth>
+                <RequireAdmin>
                   <AdminPage />
-                </RequireAuth>
+                </RequireAdmin>
               }
             />
 

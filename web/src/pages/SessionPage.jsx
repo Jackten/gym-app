@@ -45,6 +45,7 @@ export default function SessionPage() {
   });
 
   const [generatedSessions, setGeneratedSessions] = useState([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const dayLabelMap = useMemo(() => {
     const labels = new Map();
@@ -249,16 +250,26 @@ export default function SessionPage() {
     setStep('review');
   }
 
-  function confirmBooking() {
-    const result = createManualBookings({
-      sessions: generatedSessions,
-      equipmentSelection,
-      note: equipmentNote.trim(),
-      recurrence,
-    });
+  async function confirmBooking() {
+    if (isSubmitting) return;
 
-    if (!result.ok) return;
-    navigate('/bookings', { replace: true });
+    setIsSubmitting(true);
+    try {
+      const result = await createManualBookings({
+        sessions: generatedSessions,
+        equipmentSelection,
+        note: equipmentNote.trim(),
+        recurrence,
+      });
+
+      if (!result?.ok) return;
+      setNotice(result.count > 1
+        ? `Booked ${result.count} sessions. Redirecting to your bookings…`
+        : 'Booking confirmed. Redirecting to your bookings…');
+      navigate('/bookings', { replace: true });
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -380,8 +391,10 @@ export default function SessionPage() {
           </div>
 
           <div className="session-step-actions compact">
-            <button type="button" className="btn-secondary" onClick={() => setStep('recurrence')}>Back</button>
-            <button type="button" className="btn-primary" onClick={confirmBooking}>Confirm booking</button>
+            <button type="button" className="btn-secondary" onClick={() => setStep('recurrence')} disabled={isSubmitting}>Back</button>
+            <button type="button" className="btn-primary" onClick={confirmBooking} disabled={isSubmitting}>
+              {isSubmitting ? 'Confirming…' : 'Confirm booking'}
+            </button>
           </div>
         </section>
       )}

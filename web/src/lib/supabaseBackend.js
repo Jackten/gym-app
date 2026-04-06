@@ -56,6 +56,9 @@ export function buildProfileFromAuth(authUser, profileRow) {
 
   const email = authUser.email || profileRow?.email || '';
 
+  const profileRole = profileRow?.role || profileRow?.staff_role || '';
+  const metadataRole = metadata.role || authUser.app_metadata?.role || '';
+
   return {
     id: authUser.id,
     name: profileRow?.full_name || metadata.full_name || metadata.name || deriveNameFromEmail(email),
@@ -65,6 +68,13 @@ export function buildProfileFromAuth(authUser, profileRow) {
     authProviders: providers,
     memberSince: profileRow?.created_at || authUser.created_at,
     lastSignInAt: authUser.last_sign_in_at,
+    role: profileRole || metadataRole || undefined,
+    isAdmin: Boolean(
+      profileRow?.is_admin === true
+      || String(profileRole).toLowerCase() === 'admin'
+      || String(metadataRole).toLowerCase() === 'admin'
+      || authUser.app_metadata?.is_admin === true,
+    ),
   };
 }
 

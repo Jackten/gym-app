@@ -17,7 +17,6 @@ import {
   upsertUserFromIdentity,
   addTransaction,
   sortByStartDesc,
-  generateDemoCode,
   createLocalDate,
 } from '../lib/helpers';
 import { SLOT_CAPACITY, EQUIPMENT_FLOW_CATEGORIES } from '../features/calendar-scheduler/config';
@@ -75,6 +74,24 @@ function passkeyFriendlyName() {
   return `Pelayo Passkey (${stamp})`;
 }
 
+function normalizeAdminEmails(raw) {
+  return String(raw || '')
+    .split(',')
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+function userHasAdminAccess(user, adminEmails) {
+  if (!user) return false;
+
+  if (user.isAdmin === true) return true;
+  if (String(user.role || '').toLowerCase() === 'admin') return true;
+  if (String(user.staffRole || '').toLowerCase() === 'admin') return true;
+
+  const email = String(user.email || '').trim().toLowerCase();
+  return email ? adminEmails.includes(email) : false;
+}
+
 export function useApp() {
   const ctx = useContext(AppContext);
   if (!ctx) throw new Error('useApp must be used inside AppProvider');
@@ -97,13 +114,17 @@ export function AppProvider({ children }) {
   const [authMethod, setAuthMethod] = useState('');
   const [authPending, setAuthPending] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
-  const [expectedCode, setExpectedCode] = useState('');
   const [registrationResult, setRegistrationResult] = useState(null);
 
   const [passkeyFactors, setPasskeyFactors] = useState([]);
   const [passkeyLoading, setPasskeyLoading] = useState(false);
   const [passkeyActionState, setPasskeyActionState] = useState('idle');
   const [passkeyActionError, setPasskeyActionError] = useState('');
+
+  const adminEmails = useMemo(
+    () => normalizeAdminEmails(import.meta.env.VITE_ADMIN_EMAILS),
+    [],
+  );
 
   const now = useMemo(
     () => new Date(nowMs + (appState.clockOffsetMinutes || 0) * 60_000),
@@ -117,6 +138,10 @@ export function AppProvider({ children }) {
   );
 
   const currentUser = supabaseCurrentUser || fallbackCurrentUser;
+  const isAdmin = useMemo(
+    () => userHasAdminAccess(currentUser, adminEmails),
+    [currentUser, adminEmails],
+  );
 
   const effectiveBookings = useMemo(
     () => (supabaseCurrentUser ? supabaseBookings : appState.bookings),
@@ -311,7 +336,6 @@ export function AppProvider({ children }) {
   function resetAuthState() {
     setAuthPending(false);
     setOtpSent(false);
-    setExpectedCode('');
     setPasskeyActionState('idle');
     setPasskeyActionError('');
   }
@@ -646,32 +670,9 @@ export function AppProvider({ children }) {
     }
 
     if (authMethod === 'phone') {
-      const phone = normalizePhone(authForm.phone);
-      if (!phone || phone.length < 8) {
-        setNotice('Enter a valid phone number.');
-        return {};
-      }
-      if (!otpSent) {
-        const demoCode = generateDemoCode();
-        setExpectedCode(demoCode);
-        setOtpSent(true);
-        setNotice(`Verification code sent via SMS (demo): ${demoCode}`);
-        return {};
-      }
-      if (expectedCode && authForm.code.trim() !== expectedCode) {
-        setNotice('Invalid SMS code. Use the demo code shown above.');
-        return {};
-      }
-      if (!authForm.code || authForm.code.trim().length < 4) {
-        setNotice('Enter the 4–6 digit verification code.');
-        return {};
-      }
-      setAuthPending(true);
-      await new Promise((r) => setTimeout(r, 650));
-      return completeAuth(
-        { phone, name: authForm.name || 'Pelayo Member', email: authForm.email },
-        authMode,
-      );
+      resetAuthState();
+      setNotice('Phone sign-in is temporarily unavailable. Please use email, Google, or passkey.');
+      return {};
     }
 
     return {};
@@ -684,15 +685,8 @@ export function AppProvider({ children }) {
     }
 
     if (authMethod === 'phone') {
-      const phone = normalizePhone(authForm.phone);
-      if (!phone || phone.length < 8) {
-        setNotice('Enter a valid phone number first.');
-        return;
-      }
-      const demoCode = generateDemoCode();
-      setExpectedCode(demoCode);
-      setOtpSent(true);
-      setNotice(`Verification code sent via SMS (demo): ${demoCode}`);
+      resetAuthState();
+      setNotice('Phone sign-in is temporarily unavailable. Please use email, Google, or passkey.');
       return;
     }
 
@@ -1195,6 +1189,7 @@ export function AppProvider({ children }) {
     }
 
     const seriesId = sessions.length > 1 ? `series-${Date.now()}` : null;
+    let bookedCount = 0;
 
     setAppState((prev) => {
       const next = structuredClone(prev);
@@ -1259,10 +1254,16 @@ export function AppProvider({ children }) {
       }
 
       if (booked.length === 0) return prev;
+      bookedCount = booked.length;
       return next;
     });
 
-    const count = sessions.length;
+    if (bookedCount === 0) {
+      setNotice('Unable to create booking. Selected times are no longer available.');
+      return { ok: false, count: 0 };
+    }
+
+    const count = bookedCount;
     setNotice(count > 1 ? `Recurring booking created (${count} sessions).` : 'Booking confirmed.');
     return { ok: true, count };
   }
@@ -1436,6 +1437,7 @@ export function AppProvider({ children }) {
     notice,
     setNotice,
     currentUser,
+    isAdmin,
     walletBalance,
     activeQuote,
     quoteSecondsLeft,

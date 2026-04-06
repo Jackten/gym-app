@@ -31,9 +31,10 @@ export default function AccountPage() {
     ? currentUser.authProviders
     : [];
 
+  const hasVerifiedPasskey = (passkeyFactors || []).some((factor) => factor.status === 'verified');
   const effectiveProviders = (() => {
-    const unique = new Set(authProviders);
-    if ((passkeyFactors || []).some((factor) => factor.status === 'verified')) {
+    const unique = new Set(authProviders.filter((provider) => provider !== 'passkey'));
+    if (hasVerifiedPasskey) {
       unique.add('passkey');
     }
     return [...unique];

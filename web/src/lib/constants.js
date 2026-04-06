@@ -19,7 +19,13 @@ export const AUTH_METHODS = [
   },
   { id: 'google', title: 'Google', subtitle: 'Continue with your Google account', icon: '🔑' },
   { id: 'ethereum', title: 'Ethereum', subtitle: 'Connect wallet to sign in', icon: '⬡' },
-  { id: 'phone', title: 'Phone', subtitle: 'SMS verification code', icon: '📱' },
+  {
+    id: 'phone',
+    title: 'Phone',
+    subtitle: 'Temporarily unavailable, use email/Google/passkey',
+    icon: '📱',
+    comingSoon: true,
+  },
   { id: 'email', title: 'Email', subtitle: 'Magic-code sign-in', icon: '✉️' },
 ];
 

@@ -9,8 +9,6 @@ import AuthPage from './pages/AuthPage';
 import HubPage from './pages/HubPage';
 import SessionPage from './pages/SessionPage';
 import CalendarPage from './pages/CalendarPage';
-import WalletPage from './pages/WalletPage';
-import TopUpPage from './pages/TopUpPage';
 import BookingsPage from './pages/BookingsPage';
 import AccountPage from './pages/AccountPage';
 import AdminPage from './pages/AdminPage';
@@ -70,13 +68,14 @@ export default function App() {
   const { currentUser } = useApp();
   const location = useLocation();
 
+  // Determine if we're on a flow page (session steps, top-up) where we might want minimal chrome
+  const isFlowPage = location.pathname.startsWith('/session');
+
   // Show bottom nav only for authenticated users on app pages
   const showBottomNav =
     currentUser &&
-    !['/signin', '/register', '/'].includes(location.pathname);
-
-  // Determine if we're on a flow page (session steps, top-up) where we might want minimal chrome
-  const isFlowPage = location.pathname.startsWith('/session');
+    !['/signin', '/register', '/'].includes(location.pathname) &&
+    !isFlowPage;
 
   return (
     <div className="app-shell">
@@ -164,7 +163,7 @@ export default function App() {
               path="/wallet"
               element={
                 <RequireAuth>
-                  <WalletPage />
+                  <Navigate to="/calendar" replace />
                 </RequireAuth>
               }
             />
@@ -172,7 +171,7 @@ export default function App() {
               path="/wallet/topup"
               element={
                 <RequireAuth>
-                  <TopUpPage />
+                  <Navigate to="/calendar" replace />
                 </RequireAuth>
               }
             />

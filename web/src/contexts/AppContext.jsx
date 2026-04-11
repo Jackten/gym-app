@@ -617,7 +617,7 @@ export function AppProvider({ children }) {
         return { redirect: '/home', success: true };
       } catch (error) {
         setAuthPending(false);
-        setNotice(error?.message || 'Invalid or expired email code. Request a new one.');
+        setNotice(error?.message || 'Invalid or expired email code. Use resend to request a new one.');
         return {};
       }
     }
@@ -699,6 +699,7 @@ export function AppProvider({ children }) {
 
       if (isSupabaseConfigured && supabase) {
         setAuthPending(true);
+        const wasRetry = otpSent;
         try {
           const { error } = await supabase.auth.signInWithOtp({
             email,
@@ -715,7 +716,11 @@ export function AppProvider({ children }) {
           if (error) throw error;
 
           setOtpSent(true);
-          setNotice(`Verification code sent to ${email}.`);
+          setNotice(
+            wasRetry
+              ? `A fresh verification code was sent to ${email}.`
+              : `Verification code sent to ${email}.`,
+          );
         } catch (error) {
           setOtpSent(false);
           setNotice(error?.message || 'Unable to send email code right now.');

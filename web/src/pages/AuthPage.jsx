@@ -265,6 +265,16 @@ export default function AuthPage() {
                 {`Send ${authMethod === 'phone' ? 'SMS' : 'Email'} Code`}
               </button>
             )}
+            {authMethod === 'email' && otpSent && (
+              <button
+                type="button"
+                className="btn-secondary"
+                disabled={authPending}
+                onClick={() => sendOtp(authForm, authMode)}
+              >
+                Resend email code
+              </button>
+            )}
             <button
               type="submit"
               className="btn-primary"

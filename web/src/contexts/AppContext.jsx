@@ -605,7 +605,11 @@ export function AppProvider({ children }) {
           if (error) throw error;
           setOtpSent(true);
           setOtpCooldownUntilMs(Date.now() + 60_000);
-          setNotice(`Verification code sent to ${email}.`);
+          setNotice(
+            authMode === 'register'
+              ? `Signup link sent to ${email}. Open the email and tap the link to finish creating your account.`
+              : `Verification code sent to ${email}.`,
+          );
         } catch (error) {
           setOtpSent(false);
           setNotice(toOtpNotice(error, 'Unable to send email code right now.'));
@@ -731,9 +735,13 @@ export function AppProvider({ children }) {
           setOtpSent(true);
           setOtpCooldownUntilMs(Date.now() + 60_000);
           setNotice(
-            wasRetry
-              ? `A fresh verification code was sent to ${email}.`
-              : `Verification code sent to ${email}.`,
+            authMode === 'register'
+              ? wasRetry
+                ? `A fresh signup link was sent to ${email}. Open the email and tap the link to finish creating your account.`
+                : `Signup link sent to ${email}. Open the email and tap the link to finish creating your account.`
+              : wasRetry
+                ? `A fresh verification code was sent to ${email}.`
+                : `Verification code sent to ${email}.`,
           );
         } catch (error) {
           setOtpSent(false);

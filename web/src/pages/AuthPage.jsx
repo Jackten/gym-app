@@ -50,15 +50,24 @@ export default function AuthPage() {
     : authMode === 'register'
       ? 'Create account'
       : 'Sign in';
+  const isEmailSignupFlow = authMethod === 'email' && authMode === 'register';
   const emailCodeButtonLabel = otpCooldownSeconds > 0
-    ? `Send email code (${otpCooldownSeconds}s)`
-    : 'Send Email Code';
+    ? `${isEmailSignupFlow ? 'Send signup link' : 'Send email code'} (${otpCooldownSeconds}s)`
+    : isEmailSignupFlow
+      ? 'Send signup link'
+      : 'Send Email Code';
   const resendEmailCodeLabel = otpCooldownSeconds > 0
-    ? `Resend email code (${otpCooldownSeconds}s)`
-    : 'Resend email code';
+    ? `${isEmailSignupFlow ? 'Resend signup link' : 'Resend email code'} (${otpCooldownSeconds}s)`
+    : isEmailSignupFlow
+      ? 'Resend signup link'
+      : 'Resend email code';
 
   async function onSubmit(e) {
     e?.preventDefault();
+    if (isEmailSignupFlow) {
+      await sendOtp(authForm, authMode);
+      return;
+    }
     const result = await handleAuthSubmit(authForm, authMode);
     if (result?.redirect) {
       navigate(result.redirect === '/home' ? postAuthRedirect : result.redirect, { replace: true });
@@ -199,21 +208,23 @@ export default function AuthPage() {
               </label>
               {otpSent && (
                 <>
-                  <label>
-                    Magic code
-                    <input
-                      type="text"
-                      value={authForm.code}
-                      onChange={(e) => setAuthForm((p) => ({ ...p, code: e.target.value }))}
-                      placeholder="Enter verification code"
-                      autoFocus
-                    />
-                  </label>
-                  {authMode === 'register' && (
-                    <p className="muted" style={{ margin: 0, fontSize: '0.82rem' }}>
-                      Check your email for the verification code before creating your account.
-                    </p>
+                  {authMode === 'signin' && (
+                    <label>
+                      Magic code
+                      <input
+                        type="text"
+                        value={authForm.code}
+                        onChange={(e) => setAuthForm((p) => ({ ...p, code: e.target.value }))}
+                        placeholder="Enter verification code"
+                        autoFocus
+                      />
+                    </label>
                   )}
+                  {authMode === 'register' ? (
+                    <p className="muted" style={{ margin: 0, fontSize: '0.82rem' }}>
+                      Check your email and tap the signup link. This page will finish signing you in after the confirmation link opens the app again.
+                    </p>
+                  ) : null}
                 </>
               )}
             </>
@@ -245,13 +256,15 @@ export default function AuthPage() {
                 {resendEmailCodeLabel}
               </button>
             )}
-            <button
-              type="submit"
-              className="btn-primary"
-              disabled={authPending || !authMethod}
-            >
-              {authPending ? 'Processing…' : actionLabel}
-            </button>
+            {!(isEmailSignupFlow && otpSent) && (
+              <button
+                type="submit"
+                className="btn-primary"
+                disabled={authPending || !authMethod}
+              >
+                {authPending ? 'Processing…' : actionLabel}
+              </button>
+            )}
             <button
               type="button"
               className="btn-secondary"

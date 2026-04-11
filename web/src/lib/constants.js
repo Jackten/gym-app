@@ -108,5 +108,4 @@ export const EMPTY_AUTH_FORM = {
   phone: '',
   code: '',
   walletAddress: '',
-  waiverAccepted: false,
 };

@@ -25,13 +25,17 @@ export default function AuthPage() {
   } = useApp();
 
   const [authForm, setAuthForm] = useState(EMPTY_AUTH_FORM);
+  const requestedPath = location.state?.from?.pathname;
+  const postAuthRedirect = requestedPath && !['/', '/signin', '/register'].includes(requestedPath)
+    ? requestedPath
+    : '/home';
 
   // Redirect if already logged in
   useEffect(() => {
     if (currentUser) {
-      navigate('/home', { replace: true });
+      navigate(postAuthRedirect, { replace: true });
     }
-  }, [currentUser, navigate]);
+  }, [currentUser, navigate, postAuthRedirect]);
 
   // Reset state when switching modes
   useEffect(() => {
@@ -57,7 +61,7 @@ export default function AuthPage() {
     e?.preventDefault();
     const result = await handleAuthSubmit(authForm, authMode);
     if (result?.redirect) {
-      navigate(result.redirect, { replace: true });
+      navigate(result.redirect === '/home' ? postAuthRedirect : result.redirect, { replace: true });
     }
   }
 
@@ -215,20 +219,10 @@ export default function AuthPage() {
             </>
           )}
 
-          {/* Waiver for registration */}
           {authMethod && authMode === 'register' && (
-            <label className="waiver-check">
-              <input
-                type="checkbox"
-                checked={authForm.waiverAccepted}
-                onChange={(e) => setAuthForm((p) => ({ ...p, waiverAccepted: e.target.checked }))}
-              />
-              <span>
-                I acknowledge the inherent risks of physical training and accept the{' '}
-                <strong>liability waiver</strong> and <strong>terms of service</strong> for Pelayo
-                Wellness.
-              </span>
-            </label>
+            <p className="muted" style={{ margin: 0, fontSize: '0.82rem' }}>
+              Waiver paperwork is handled separately before in-person sessions when needed.
+            </p>
           )}
 
           <div className="auth-actions">
@@ -254,14 +248,14 @@ export default function AuthPage() {
             <button
               type="submit"
               className="btn-primary"
-              disabled={authPending || !authMethod || (authMode === 'register' && !authForm.waiverAccepted)}
+              disabled={authPending || !authMethod}
             >
               {authPending ? 'Processing…' : actionLabel}
             </button>
             <button
               type="button"
               className="btn-secondary"
-              onClick={() => navigate(authMode === 'signin' ? '/register' : '/signin')}
+              onClick={() => navigate(authMode === 'signin' ? '/register' : '/signin', { state: location.state })}
             >
               {copy.switchText}
             </button>

@@ -17,10 +17,10 @@ export default function LandingPage() {
       <section className="card landing-auth-card">
         <p className="eyebrow">Pelayo Wellness</p>
         <h2>Welcome</h2>
-        <p className="muted">Login or register to access your dashboard and calendar.</p>
+        <p className="muted">Sign in or create an account to access the schedule and manage bookings.</p>
         <div className="landing-auth-actions">
-          <button className="btn-primary btn-lg" onClick={() => navigate('/signin')}>Login</button>
-          <button className="btn-secondary btn-lg" onClick={() => navigate('/register')}>Register</button>
+          <button className="btn-primary btn-lg" onClick={() => navigate('/signin')}>Sign in</button>
+          <button className="btn-secondary btn-lg" onClick={() => navigate('/register')}>Create account</button>
         </div>
       </section>
     </div>

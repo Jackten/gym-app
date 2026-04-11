@@ -1278,69 +1278,19 @@ export function AppProvider({ children }) {
     if (supabase && supabaseCurrentUser) {
       const target = myBookings.find((booking) => booking.id === bookingId);
       if (!target || target.status !== 'confirmed') return false;
+      const { data: updatedCount, error } = await supabase.rpc('reschedule_booking_time', {
+        p_booking_id: bookingId,
+        p_new_time: padTime(newTimeInput),
+        p_scope: scope,
+      });
 
-      const candidates = scope === 'all' && target.recurrence?.seriesId
-        ? myBookings.filter((booking) => (
-          booking.status === 'confirmed'
-          && booking.recurrence?.seriesId === target.recurrence.seriesId
-          && new Date(booking.startISO) >= now
-        ))
-        : [target];
-
-      const updates = [];
-
-      for (const booking of candidates) {
-        const currentStart = new Date(booking.startISO);
-        const dateInput = `${currentStart.getFullYear()}-${String(currentStart.getMonth() + 1).padStart(2, '0')}-${String(currentStart.getDate()).padStart(2, '0')}`;
-        const nextStart = createLocalDate(dateInput, newTimeInput);
-        const nextEnd = new Date(nextStart.getTime() + booking.durationMinutes * 60_000);
-
-        const conflictCount = allBookings.filter((candidate) => {
-          if (candidate.id === booking.id || candidate.status !== 'confirmed') return false;
-          const cStart = new Date(candidate.startISO);
-          const cEnd = new Date(candidate.endISO);
-          return cStart < nextEnd && nextStart < cEnd;
-        }).length;
-
-        if (conflictCount >= SLOT_CAPACITY) continue;
-
-        updates.push({
-          id: booking.id,
-          slot_date: dateInput,
-          start_time: padTime(newTimeInput),
-          end_time: addMinutesToTime(newTimeInput, booking.durationMinutes),
-        });
-      }
-
-      if (updates.length === 0) {
-        setNotice('Unable to apply edit — selected slot is full.');
-        return false;
-      }
-
-      const bookingUpdateResults = await Promise.all(
-        updates.map(async (row) => {
-          const { error: updateError } = await supabase
-            .from('bookings')
-            .update({
-              slot_date: row.slot_date,
-              start_time: row.start_time,
-              end_time: row.end_time,
-            })
-            .eq('id', row.id)
-            .eq('user_id', currentUser.id);
-
-          return { id: row.id, error: updateError };
-        }),
-      );
-
-      const failedBookingUpdate = bookingUpdateResults.find((result) => result.error);
-      if (failedBookingUpdate) {
-        setNotice(failedBookingUpdate.error?.message || 'Unable to update booking time right now.');
+      if (error) {
+        setNotice(error.message || 'Unable to update booking time right now.');
         return false;
       }
 
       await hydrateSupabaseData();
-      setNotice(scope === 'all' ? `Updated ${updates.length} sessions in this series.` : 'Session updated.');
+      setNotice(scope === 'all' ? `Updated ${updatedCount || 0} sessions in this series.` : 'Session updated.');
       return true;
     }
 

@@ -1002,9 +1002,9 @@ export function AppProvider({ children }) {
     });
 
     if (mins > 120) {
-      setNotice('Booking cancelled. Full refund applied.');
+      setNotice('Booking cancelled.');
     } else {
-      setNotice('Booking cancelled within 2h of start — no automatic refund.');
+      setNotice('Booking cancelled. This was recorded as a late cancellation.');
     }
   }
 

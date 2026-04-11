@@ -48,12 +48,8 @@ export default function SessionConfirmedPage() {
               </strong>
             </div>
             <div className="confirmed-row total">
-              <span>Payment</span>
-              <strong>
-                {latestBooking.source === 'agent-led-prototype'
-                  ? 'Deferred in prototype'
-                  : `${latestBooking.pricing?.finalCredits || 0} credits charged`}
-              </strong>
+              <span>Status</span>
+              <strong>Saved to your schedule</strong>
             </div>
           </div>
         )}

@@ -3,57 +3,37 @@ import { useNavigate } from 'react-router-dom';
 import { useApp } from '../contexts/AppContext';
 
 export default function TopUpPage() {
-  const { currentUser, walletBalance, handleTopUp, appState } = useApp();
+  const { currentUser } = useApp();
   const navigate = useNavigate();
 
   if (!currentUser) return null;
-
-  function onTopUp(pkg) {
-    handleTopUp(pkg);
-  }
 
   return (
     <div className="page-topup">
       <section className="card">
         <div className="topup-header">
           <div>
-            <p className="eyebrow">Add Credits</p>
-            <h2>Top Up Your Wallet</h2>
+            <p className="eyebrow">Payments</p>
+            <h2>Online top-ups are not live yet</h2>
             <p className="muted section-desc">
-              1 credit = $1 equivalent. Choose a package to add credits instantly.
+              Credit packages and automated payment handling are still under construction.
+              For now, use the app to schedule sessions only.
             </p>
-          </div>
-          <div className="topup-current-balance">
-            <span className="muted">Current Balance</span>
-            <strong>{walletBalance} cr</strong>
           </div>
         </div>
 
-        <div className="topup-packages">
-          {appState.packages.map((pkg) => {
-            const savings = pkg.credits - pkg.cash;
-            const hasSavings = savings > 0;
-            return (
-              <button
-                key={pkg.id}
-                className="topup-package"
-                onClick={() => onTopUp(pkg)}
-              >
-                <div className="pkg-header">
-                  <strong className="pkg-name">{pkg.label}</strong>
-                  {hasSavings && <span className="pkg-save">Save ${savings}</span>}
-                </div>
-                <div className="pkg-credits">+{pkg.credits} credits</div>
-                <div className="pkg-price">${pkg.cash}</div>
-                <div className="pkg-cta">Purchase →</div>
-              </button>
-            );
-          })}
+        <div className="empty-state" style={{ padding: '1rem 0 0' }}>
+          <p className="muted">
+            No purchase options are shown here because online billing has not been launched yet.
+          </p>
         </div>
 
         <div className="topup-actions">
-          <button className="btn-secondary" onClick={() => navigate('/wallet')}>
-            ← Back to Wallet
+          <button className="btn-primary" onClick={() => navigate('/calendar')}>
+            Go to calendar
+          </button>
+          <button className="btn-secondary" onClick={() => navigate('/bookings')}>
+            View my bookings
           </button>
         </div>
       </section>

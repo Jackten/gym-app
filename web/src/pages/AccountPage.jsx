@@ -198,12 +198,12 @@ export default function AccountPage() {
       <section className="card">
         <h3>Waiver & Liability</h3>
         <p className="muted section-desc">
-          You accepted the liability waiver and terms of service when you created your account.
+          Signed waiver records are still handled outside this app during the scheduling-first launch.
         </p>
         <div className="waiver-status">
-          <span className="badge badge-active">✓ Accepted</span>
+          <span className="badge">Handled offline</span>
           <span className="muted" style={{ fontSize: '0.82rem' }}>
-            Covers all sessions at Pelayo Wellness
+            Staff should confirm your waiver before in-person sessions when needed
           </span>
         </div>
       </section>

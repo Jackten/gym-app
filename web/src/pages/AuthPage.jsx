@@ -182,41 +182,6 @@ export default function AuthPage() {
             </>
           )}
 
-          {authMethod === 'phone' && (
-            <>
-              <label>
-                Mobile number
-                <input
-                  type="tel"
-                  value={authForm.phone}
-                  onChange={(e) => setAuthForm((p) => ({ ...p, phone: e.target.value }))}
-                  placeholder="+1 787 555 0199"
-                />
-              </label>
-              {otpSent && (
-                <label>
-                  SMS code
-                  <input
-                    type="text"
-                    value={authForm.code}
-                    onChange={(e) => setAuthForm((p) => ({ ...p, code: e.target.value }))}
-                    placeholder="6-digit code"
-                    autoFocus
-                  />
-                </label>
-              )}
-              <label>
-                Backup email (optional)
-                <input
-                  type="email"
-                  value={authForm.email}
-                  onChange={(e) => setAuthForm((p) => ({ ...p, email: e.target.value }))}
-                  placeholder="you@example.com"
-                />
-              </label>
-            </>
-          )}
-
           {authMethod === 'email' && (
             <>
               <label>
@@ -267,13 +232,13 @@ export default function AuthPage() {
           )}
 
           <div className="auth-actions">
-            {(authMethod === 'phone' || authMethod === 'email') && !otpSent && (
+            {authMethod === 'email' && !otpSent && (
               <button
                 type="button"
-                disabled={authPending || (authMethod === 'email' && otpCooldownSeconds > 0)}
+                disabled={authPending || otpCooldownSeconds > 0}
                 onClick={() => sendOtp(authForm, authMode)}
               >
-                {authMethod === 'phone' ? 'Send SMS Code' : emailCodeButtonLabel}
+                {emailCodeButtonLabel}
               </button>
             )}
             {authMethod === 'email' && otpSent && (

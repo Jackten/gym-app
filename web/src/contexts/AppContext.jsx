@@ -689,24 +689,12 @@ export function AppProvider({ children }) {
       );
     }
 
-    if (authMethod === 'phone') {
-      resetAuthState();
-      setNotice('Phone sign-in is temporarily unavailable. Please use email, Google, or passkey.');
-      return {};
-    }
-
     return {};
   }
 
   async function sendOtp(authForm, authMode = 'signin') {
     if (!authMethod) {
       setNotice('Select a sign-in method first.');
-      return;
-    }
-
-    if (authMethod === 'phone') {
-      resetAuthState();
-      setNotice('Phone sign-in is temporarily unavailable. Please use email, Google, or passkey.');
       return;
     }
 

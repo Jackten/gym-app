@@ -12,13 +12,6 @@ export const WORKOUT_TYPES = [
 
 export const AUTH_METHODS = [
   { id: 'google', title: 'Google', subtitle: 'Continue with your Google account', icon: '🔑' },
-  {
-    id: 'phone',
-    title: 'Phone',
-    subtitle: 'Temporarily unavailable, use email or Google',
-    icon: '📱',
-    comingSoon: true,
-  },
   { id: 'email', title: 'Email', subtitle: 'Magic-code sign-in', icon: '✉️' },
 ];
 

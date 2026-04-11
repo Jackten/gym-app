@@ -14,6 +14,7 @@ export default function AuthPage() {
     setAuthMethod,
     authPending,
     otpSent,
+    otpCooldownSeconds,
     resetAuthState,
     handleAuthSubmit,
     sendOtp,
@@ -45,6 +46,12 @@ export default function AuthPage() {
     : authMode === 'register'
       ? 'Create account'
       : 'Sign in';
+  const emailCodeButtonLabel = otpCooldownSeconds > 0
+    ? `Send email code (${otpCooldownSeconds}s)`
+    : 'Send Email Code';
+  const resendEmailCodeLabel = otpCooldownSeconds > 0
+    ? `Resend email code (${otpCooldownSeconds}s)`
+    : 'Resend email code';
 
   async function onSubmit(e) {
     e?.preventDefault();
@@ -261,18 +268,22 @@ export default function AuthPage() {
 
           <div className="auth-actions">
             {(authMethod === 'phone' || authMethod === 'email') && !otpSent && (
-              <button type="button" disabled={authPending} onClick={() => sendOtp(authForm, authMode)}>
-                {`Send ${authMethod === 'phone' ? 'SMS' : 'Email'} Code`}
+              <button
+                type="button"
+                disabled={authPending || (authMethod === 'email' && otpCooldownSeconds > 0)}
+                onClick={() => sendOtp(authForm, authMode)}
+              >
+                {authMethod === 'phone' ? 'Send SMS Code' : emailCodeButtonLabel}
               </button>
             )}
             {authMethod === 'email' && otpSent && (
               <button
                 type="button"
                 className="btn-secondary"
-                disabled={authPending}
+                disabled={authPending || otpCooldownSeconds > 0}
                 onClick={() => sendOtp(authForm, authMode)}
               >
-                Resend email code
+                {resendEmailCodeLabel}
               </button>
             )}
             <button

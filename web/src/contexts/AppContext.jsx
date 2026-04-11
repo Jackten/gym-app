@@ -92,6 +92,14 @@ function userHasAdminAccess(user, adminEmails) {
   return email ? adminEmails.includes(email) : false;
 }
 
+function toOtpNotice(error, fallback) {
+  const message = String(error?.message || fallback || '').trim();
+  if (/rate limit/i.test(message)) {
+    return 'Too many email code requests. Wait about a minute, then try again.';
+  }
+  return message || fallback;
+}
+
 export function useApp() {
   const ctx = useContext(AppContext);
   if (!ctx) throw new Error('useApp must be used inside AppProvider');
@@ -114,6 +122,7 @@ export function AppProvider({ children }) {
   const [authMethod, setAuthMethod] = useState('');
   const [authPending, setAuthPending] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
+  const [otpCooldownUntilMs, setOtpCooldownUntilMs] = useState(0);
   const [registrationResult, setRegistrationResult] = useState(null);
 
   const [passkeyFactors, setPasskeyFactors] = useState([]);
@@ -154,6 +163,9 @@ export function AppProvider({ children }) {
   );
 
   const walletBalance = currentUser ? appState.wallets[currentUser.id] || 0 : 0;
+  const otpCooldownSeconds = otpCooldownUntilMs
+    ? Math.max(0, Math.ceil((otpCooldownUntilMs - nowMs) / 1000))
+    : 0;
 
   const activeQuote =
     appState.activeQuote && isHoldActive(appState.activeQuote, now) ? appState.activeQuote : null;
@@ -336,6 +348,7 @@ export function AppProvider({ children }) {
   function resetAuthState() {
     setAuthPending(false);
     setOtpSent(false);
+    setOtpCooldownUntilMs(0);
     setPasskeyActionState('idle');
     setPasskeyActionError('');
   }
@@ -569,6 +582,11 @@ export function AppProvider({ children }) {
       }
 
       if (!otpSent) {
+        if (otpCooldownSeconds > 0) {
+          setNotice(`Please wait ${otpCooldownSeconds}s before requesting another code.`);
+          return {};
+        }
+
         setAuthPending(true);
         try {
           const { error } = await supabase.auth.signInWithOtp({
@@ -585,10 +603,11 @@ export function AppProvider({ children }) {
 
           if (error) throw error;
           setOtpSent(true);
+          setOtpCooldownUntilMs(Date.now() + 60_000);
           setNotice(`Verification code sent to ${email}.`);
         } catch (error) {
           setOtpSent(false);
-          setNotice(error?.message || 'Unable to send email code right now.');
+          setNotice(toOtpNotice(error, 'Unable to send email code right now.'));
         } finally {
           setAuthPending(false);
         }
@@ -697,6 +716,11 @@ export function AppProvider({ children }) {
         return;
       }
 
+      if (otpCooldownSeconds > 0) {
+        setNotice(`Please wait ${otpCooldownSeconds}s before requesting another code.`);
+        return;
+      }
+
       if (isSupabaseConfigured && supabase) {
         setAuthPending(true);
         const wasRetry = otpSent;
@@ -716,6 +740,7 @@ export function AppProvider({ children }) {
           if (error) throw error;
 
           setOtpSent(true);
+          setOtpCooldownUntilMs(Date.now() + 60_000);
           setNotice(
             wasRetry
               ? `A fresh verification code was sent to ${email}.`
@@ -723,7 +748,7 @@ export function AppProvider({ children }) {
           );
         } catch (error) {
           setOtpSent(false);
-          setNotice(error?.message || 'Unable to send email code right now.');
+          setNotice(toOtpNotice(error, 'Unable to send email code right now.'));
         } finally {
           setAuthPending(false);
         }
@@ -1415,6 +1440,7 @@ export function AppProvider({ children }) {
     setAuthMethod,
     authPending,
     otpSent,
+    otpCooldownSeconds,
     setOtpSent,
     resetAuthState,
     handleAuthSubmit,

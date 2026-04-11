@@ -222,7 +222,7 @@ export default function AuthPage() {
                   )}
                   {authMode === 'register' ? (
                     <p className="muted" style={{ margin: 0, fontSize: '0.82rem' }}>
-                      Check your email and tap the signup link. This page will finish signing you in after the confirmation link opens the app again.
+                      Check your email and open the signup link in the same browser/device you used here so the app can finish signing you in automatically.
                     </p>
                   ) : null}
                 </>
@@ -256,7 +256,7 @@ export default function AuthPage() {
                 {resendEmailCodeLabel}
               </button>
             )}
-            {!(isEmailSignupFlow && otpSent) && (
+            {!isEmailSignupFlow && (
               <button
                 type="submit"
                 className="btn-primary"

@@ -98,6 +98,9 @@ function toOtpNotice(error, fallback) {
   if (/rate limit/i.test(message)) {
     return 'Too many email code requests. Wait about a minute, then try again.';
   }
+  if (/signups not allowed for otp/i.test(message)) {
+    return 'No account was found for that email yet. Use Create account first, then finish signup from the email link.';
+  }
   return message || fallback;
 }
 

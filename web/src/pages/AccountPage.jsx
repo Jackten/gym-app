@@ -112,11 +112,9 @@ export default function AccountPage() {
       </section>
 
       {/* Passkeys */}
-      <section className="card">
-        <h3>Passkeys</h3>
-        {!passkeySupported ? (
-          <p className="muted">Passkeys are not part of the current public test yet.</p>
-        ) : (
+      {passkeySupported && (
+        <section className="card">
+          <h3>Passkeys</h3>
           <>
             <p className="muted section-desc" style={{ marginBottom: '0.65rem' }}>
               Register passkeys to enable one-tap sign-in on supported devices.
@@ -191,8 +189,8 @@ export default function AccountPage() {
               <p className="muted">No passkeys registered yet.</p>
             )}
           </>
-        )}
-      </section>
+        </section>
+      )}
 
       {/* Waiver / Liability */}
       <section className="card">

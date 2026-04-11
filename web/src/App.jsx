@@ -99,7 +99,7 @@ export default function App() {
             ) : (
               <div className="topbar-actions">
                 <Link to="/signin" className="topbar-link">Sign in</Link>
-                <Link to="/register" className="btn-primary topbar-btn">Get started</Link>
+                <Link to="/register" className="btn-primary topbar-btn">Create account</Link>
               </div>
             )}
           </header>

@@ -27,7 +27,7 @@ export const AUTH_VIEW_COPY = {
   register: {
     eyebrow: 'Create Account',
     title: 'Join Pelayo Wellness',
-    blurb: 'Create your account to start booking premium training sessions.',
+    blurb: 'Create your account to start booking sessions and managing your schedule.',
     ctaLabel: 'Create account',
     modeCopy: 'Register',
     switchText: 'Already have an account? Sign in →',

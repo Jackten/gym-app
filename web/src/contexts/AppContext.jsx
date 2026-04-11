@@ -960,11 +960,6 @@ export function AppProvider({ children }) {
         return;
       }
 
-      await supabase
-        .from('equipment_reservations')
-        .update({ status: 'cancelled' })
-        .eq('booking_id', bookingId);
-
       setSupabaseBookings((prev) => prev.map((booking) => (
         booking.id === bookingId
           ? { ...booking, status: 'cancelled', cancelledAt: now.toISOString() }
@@ -1154,27 +1149,6 @@ export function AppProvider({ children }) {
 
         if (insertError) throw insertError;
 
-        const reservationsPayload = (insertedBookings || []).flatMap((bookingRow) =>
-          (bookingRow.equipment_items || []).map((equipmentId) => ({
-            equipment_id: equipmentId,
-            booking_id: bookingRow.id,
-            slot_date: bookingRow.slot_date,
-            start_time: bookingRow.start_time,
-            end_time: bookingRow.end_time,
-            status: 'confirmed',
-          })),
-        );
-
-        if (reservationsPayload.length > 0) {
-          const { error: reservationError } = await supabase
-            .from('equipment_reservations')
-            .insert(reservationsPayload);
-
-          if (reservationError) {
-            console.warn('Unable to write equipment reservations:', reservationError.message);
-          }
-        }
-
         setSupabaseBookings((prev) => {
           const next = [...prev, ...(insertedBookings || []).map(mapSupabaseBooking)];
           return next.sort(sortByStartDesc);
@@ -1339,23 +1313,6 @@ export function AppProvider({ children }) {
         setNotice(failedBookingUpdate.error?.message || 'Unable to update booking time right now.');
         return false;
       }
-
-      await Promise.all(
-        updates.map(async (row) => {
-          const { error: reservationError } = await supabase
-            .from('equipment_reservations')
-            .update({
-              slot_date: row.slot_date,
-              start_time: row.start_time,
-              end_time: row.end_time,
-            })
-            .eq('booking_id', row.id);
-
-          if (reservationError) {
-            console.warn('Unable to update equipment reservations:', reservationError.message);
-          }
-        }),
-      );
 
       await hydrateSupabaseData();
       setNotice(scope === 'all' ? `Updated ${updates.length} sessions in this series.` : 'Session updated.');

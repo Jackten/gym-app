@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "test": "TZ=UTC vitest run",
     "test:watch": "TZ=UTC vitest",
-    "test:smoke": "node scripts/smoke.mjs"
+    "test:smoke": "node scripts/smoke.mjs",
+    "test:smoke:vercel": "APP_BASE_URL=https://gym-app-navy-nine.vercel.app node scripts/smoke.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.99.3",

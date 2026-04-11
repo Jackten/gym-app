@@ -1,14 +1,20 @@
+const appBaseUrl = String(process.env.APP_BASE_URL || 'https://jackten.github.io/gym-app').replace(/\/+$/, '');
+
 const checks = [
   {
-    name: 'GitHub Pages homepage',
-    url: 'https://jackten.github.io/gym-app/',
+    name: 'Public app homepage',
+    url: `${appBaseUrl}/`,
     validate: async (response) => {
       const text = await response.text();
       if (!text.includes('Pelayo Wellness')) {
         throw new Error('Homepage did not include expected brand text.');
       }
-      if (!text.includes('/gym-app/assets/')) {
-        throw new Error('Homepage did not render GitHub Pages asset paths.');
+      if (appBaseUrl.includes('github.io')) {
+        if (!text.includes('/gym-app/assets/')) {
+          throw new Error('Homepage did not render GitHub Pages asset paths.');
+        }
+      } else if (!text.includes('/assets/')) {
+        throw new Error('Homepage did not render root-relative asset paths.');
       }
     },
   },

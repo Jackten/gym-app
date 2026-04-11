@@ -32,6 +32,7 @@ import {
   loginWithPasskeyCeremony,
   getPasskeyErrorMessage,
 } from '../lib/passkeyAuth';
+import { PASSKEY_PUBLIC_ENABLED } from '../lib/constants';
 
 const AppContext = createContext(null);
 
@@ -1449,7 +1450,7 @@ export function AppProvider({ children }) {
     signOut,
     registrationResult,
     setRegistrationResult,
-    passkeySupported: browserSupportsWebAuthn(),
+    passkeySupported: PASSKEY_PUBLIC_ENABLED && browserSupportsWebAuthn(),
     passkeyFactors,
     passkeyLoading,
     passkeyActionState,

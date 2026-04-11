@@ -1,4 +1,5 @@
 export const DURATION_OPTIONS = [30, 60, 120, 180];
+export const PASSKEY_PUBLIC_ENABLED = false;
 
 export const WORKOUT_TYPES = [
   { id: 'strength', label: 'Strength', icon: '🏋️' },
@@ -10,18 +11,11 @@ export const WORKOUT_TYPES = [
 ];
 
 export const AUTH_METHODS = [
-  {
-    id: 'passkey',
-    title: 'Passkey',
-    subtitle: 'One-tap sign-in with your device passkey',
-    icon: '🗝️',
-    comingSoon: false,
-  },
   { id: 'google', title: 'Google', subtitle: 'Continue with your Google account', icon: '🔑' },
   {
     id: 'phone',
     title: 'Phone',
-    subtitle: 'Temporarily unavailable, use email/Google/passkey',
+    subtitle: 'Temporarily unavailable, use email or Google',
     icon: '📱',
     comingSoon: true,
   },

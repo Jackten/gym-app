@@ -115,7 +115,7 @@ export default function AccountPage() {
       <section className="card">
         <h3>Passkeys</h3>
         {!passkeySupported ? (
-          <p className="muted">This browser doesn&apos;t support passkeys/WebAuthn.</p>
+          <p className="muted">Passkeys are not part of the current public test yet.</p>
         ) : (
           <>
             <p className="muted section-desc" style={{ marginBottom: '0.65rem' }}>

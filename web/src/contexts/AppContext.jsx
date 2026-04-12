@@ -1141,52 +1141,33 @@ export function AppProvider({ children }) {
     }
 
     if (supabase && supabaseCurrentUser) {
-      let recurringGroupId = null;
       try {
-        if (recurrence?.frequency && recurrence.frequency !== 'none') {
-          const { data: recurringGroup, error: recurringError } = await supabase
-            .from('recurring_groups')
-            .insert({
-              user_id: currentUser.id,
-              pattern: 'time-series',
-              frequency: recurrence.frequency,
-              weekdays: recurrence.weekdays || [],
-              end_date: recurrence.endDate || null,
-              skip_dates: recurrence.skipDates || [],
-            })
-            .select('*')
-            .single();
-
-          if (recurringError) throw recurringError;
-          recurringGroupId = recurringGroup.id;
-        }
-
-        const payload = sessions.map((session) => ({
-          user_id: currentUser.id,
+        const rpcSessions = sessions.map((session) => ({
           slot_date: session.dateInput,
           start_time: padTime(session.timeInput),
-          end_time: addMinutesToTime(session.timeInput, session.durationMinutes),
           duration_minutes: session.durationMinutes,
-          status: 'confirmed',
-          equipment_categories: equipmentSelection.categories || ['dont-know'],
-          equipment_items: equipmentSelection.items || [],
-          notes: note || null,
-          recurring_group_id: recurringGroupId,
         }));
 
-        const { data: insertedBookings, error: insertError } = await supabase
-          .from('bookings')
-          .insert(payload)
-          .select('*, recurring_groups(*)');
-
-        if (insertError) throw insertError;
-
-        setSupabaseBookings((prev) => {
-          const next = [...prev, ...(insertedBookings || []).map(mapSupabaseBooking)];
-          return next.sort(sortByStartDesc);
+        const { data: insertedCount, error: createError } = await supabase.rpc('create_booking_series', {
+          p_sessions: rpcSessions,
+          p_equipment_categories: equipmentSelection.categories || ['dont-know'],
+          p_equipment_items: equipmentSelection.items || [],
+          p_note: note || null,
+          p_recurrence: recurrence?.frequency && recurrence.frequency !== 'none'
+            ? {
+                frequency: recurrence.frequency,
+                weekdays: recurrence.weekdays || [],
+                endDate: recurrence.endDate || null,
+                skipDates: recurrence.skipDates || [],
+              }
+            : null,
         });
 
-        const count = insertedBookings?.length || sessions.length;
+        if (createError) throw createError;
+
+        await hydrateSupabaseData();
+
+        const count = Number(insertedCount) || sessions.length;
         setNotice(
           count > 1
             ? `Recurring booking created (${count} sessions).`
@@ -1194,9 +1175,6 @@ export function AppProvider({ children }) {
         );
         return { ok: true, count };
       } catch (error) {
-        if (recurringGroupId) {
-          await supabase.from('recurring_groups').delete().eq('id', recurringGroupId);
-        }
         setNotice(error?.message || 'Unable to create booking right now.');
         return { ok: false };
       }

@@ -6,6 +6,7 @@ import Notice from './components/Notice';
 
 import LandingPage from './pages/LandingPage';
 import AuthPage from './pages/AuthPage';
+import AuthCallbackPage from './pages/AuthCallbackPage';
 import HubPage from './pages/HubPage';
 import SessionPage from './pages/SessionPage';
 import CalendarPage from './pages/CalendarPage';
@@ -14,8 +15,12 @@ import AccountPage from './pages/AccountPage';
 import AdminPage from './pages/AdminPage';
 
 function RequireAuth({ children }) {
-  const { currentUser } = useApp();
+  const { currentUser, authReady } = useApp();
   const location = useLocation();
+
+  if (!authReady) {
+    return null;
+  }
 
   if (!currentUser) {
     return <Navigate to="/signin" state={{ from: location }} replace />;
@@ -25,8 +30,12 @@ function RequireAuth({ children }) {
 }
 
 function RequireAdmin({ children }) {
-  const { currentUser, isAdmin } = useApp();
+  const { currentUser, isAdmin, authReady } = useApp();
   const location = useLocation();
+
+  if (!authReady) {
+    return null;
+  }
 
   if (!currentUser) {
     return <Navigate to="/signin" state={{ from: location }} replace />;
@@ -74,7 +83,7 @@ export default function App() {
   // Show bottom nav only for authenticated users on app pages
   const showBottomNav =
     currentUser &&
-    !['/signin', '/register', '/'].includes(location.pathname) &&
+    !['/signin', '/register', '/auth/callback', '/'].includes(location.pathname) &&
     !isFlowPage;
 
   return (
@@ -108,7 +117,8 @@ export default function App() {
         {/* Inner page header */}
         {location.pathname !== '/' &&
           location.pathname !== '/signin' &&
-          location.pathname !== '/register' && (
+          location.pathname !== '/register' &&
+          location.pathname !== '/auth/callback' && (
             <header className="topbar topbar-inner">
               <div className="topbar-brand">
                 <h1>
@@ -133,6 +143,7 @@ export default function App() {
             <Route path="/" element={<LandingPage />} />
             <Route path="/signin" element={<AuthPage />} />
             <Route path="/register" element={<AuthPage />} />
+            <Route path="/auth/callback" element={<AuthCallbackPage />} />
 
             {/* Protected */}
             <Route

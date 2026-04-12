@@ -3,6 +3,12 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../contexts/AppContext';
 import { AUTH_METHODS, AUTH_VIEW_COPY, EMPTY_AUTH_FORM } from '../lib/constants';
 import { abbreviateWallet } from '../lib/helpers';
+import {
+  consumeAuthRedirect,
+  readAuthRedirect,
+  rememberAuthRedirect,
+  sanitizeAuthRedirect,
+} from '../lib/authRedirect';
 
 export default function AuthPage() {
   const location = useLocation();
@@ -25,15 +31,19 @@ export default function AuthPage() {
   } = useApp();
 
   const [authForm, setAuthForm] = useState(EMPTY_AUTH_FORM);
-  const requestedPath = location.state?.from?.pathname;
-  const postAuthRedirect = requestedPath && !['/', '/signin', '/register'].includes(requestedPath)
-    ? requestedPath
-    : '/home';
+  const requestedPath = location.state?.from?.pathname || readAuthRedirect();
+  const postAuthRedirect = sanitizeAuthRedirect(requestedPath);
+
+  useEffect(() => {
+    if (location.state?.from?.pathname) {
+      rememberAuthRedirect(location.state.from.pathname);
+    }
+  }, [location.state]);
 
   // Redirect if already logged in
   useEffect(() => {
     if (currentUser) {
-      navigate(postAuthRedirect, { replace: true });
+      navigate(consumeAuthRedirect(), { replace: true });
     }
   }, [currentUser, navigate, postAuthRedirect]);
 
@@ -70,7 +80,7 @@ export default function AuthPage() {
     }
     const result = await handleAuthSubmit(authForm, authMode);
     if (result?.redirect) {
-      navigate(result.redirect === '/home' ? postAuthRedirect : result.redirect, { replace: true });
+      navigate(result.redirect === '/home' ? consumeAuthRedirect() : result.redirect, { replace: true });
     }
   }
 

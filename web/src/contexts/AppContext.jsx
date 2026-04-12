@@ -33,6 +33,7 @@ import {
   getPasskeyErrorMessage,
 } from '../lib/passkeyAuth';
 import { PASSKEY_PUBLIC_ENABLED } from '../lib/constants';
+import { getAuthCallbackUrl } from '../lib/authRedirect';
 
 const AppContext = createContext(null);
 
@@ -55,9 +56,7 @@ function pickAuthProviders(authUser) {
 }
 
 function getOAuthRedirectUrl() {
-  if (typeof window === 'undefined') return undefined;
-  // BrowserRouter callback: return to current app path and let auth state route to protected pages.
-  return `${window.location.origin}${window.location.pathname}`;
+  return getAuthCallbackUrl();
 }
 
 function browserSupportsWebAuthn() {
@@ -121,6 +120,7 @@ export function AppProvider({ children }) {
   const [supabaseProfile, setSupabaseProfile] = useState(null);
   const [supabaseBookings, setSupabaseBookings] = useState([]);
   const [supabaseEquipment, setSupabaseEquipment] = useState([]);
+  const [authReady, setAuthReady] = useState(!isSupabaseConfigured);
 
   // Auth UI state
   const [authMethod, setAuthMethod] = useState('');
@@ -149,16 +149,19 @@ export function AppProvider({ children }) {
     () => buildProfileFromAuth(supabaseUser, supabaseProfile),
     [supabaseUser, supabaseProfile],
   );
+  const useFallbackMode = !isSupabaseConfigured;
 
-  const currentUser = supabaseCurrentUser || fallbackCurrentUser;
+  const currentUser = useFallbackMode
+    ? (supabaseCurrentUser || fallbackCurrentUser)
+    : supabaseCurrentUser;
   const isAdmin = useMemo(
     () => userHasAdminAccess(currentUser, adminEmails),
     [currentUser, adminEmails],
   );
 
   const effectiveBookings = useMemo(
-    () => (supabaseCurrentUser ? supabaseBookings : appState.bookings),
-    [supabaseCurrentUser, supabaseBookings, appState.bookings],
+    () => (useFallbackMode ? (supabaseCurrentUser ? supabaseBookings : appState.bookings) : supabaseBookings),
+    [useFallbackMode, supabaseCurrentUser, supabaseBookings, appState.bookings],
   );
 
   const equipmentCategories = useMemo(
@@ -273,11 +276,13 @@ export function AppProvider({ children }) {
       if (!isMounted) return;
       setSupabaseSession(data.session || null);
       setSupabaseUser(data.session?.user || null);
+      setAuthReady(true);
     });
 
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
       setSupabaseSession(session || null);
       setSupabaseUser(session?.user || null);
+      setAuthReady(true);
       if (!session?.user) {
         setSupabaseProfile(null);
         setSupabaseBookings([]);
@@ -683,17 +688,8 @@ export function AppProvider({ children }) {
     }
 
     if (authMethod === 'ethereum') {
-      const walletAddress = authForm.walletAddress.trim();
-      if (!walletAddress || walletAddress.length < 8) {
-        setNotice('Connect a wallet or paste a valid Ethereum address.');
-        return {};
-      }
-      setAuthPending(true);
-      await new Promise((r) => setTimeout(r, 700));
-      return completeAuth(
-        { walletAddress, email: authForm.email, name: authForm.name || 'Pelayo Wallet Member' },
-        authMode,
-      );
+      setNotice('Wallet sign-in is not available in this launch. Use email or Google.');
+      return {};
     }
 
     return {};
@@ -757,29 +753,10 @@ export function AppProvider({ children }) {
   }
 
   async function connectWallet(authForm, setAuthForm, authMode) {
-    if (typeof window === 'undefined' || !window.ethereum) {
-      setNotice('No injected wallet detected. Install MetaMask / Rabby or paste an address manually.');
-      return;
-    }
-    try {
-      setAuthPending(true);
-      const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-      const first = accounts?.[0];
-      if (!first) {
-        setNotice('Wallet connected but no account was returned.');
-        return;
-      }
-      setAuthForm((prev) => ({ ...prev, walletAddress: first }));
-      setNotice(
-        authMode === 'register'
-          ? 'Wallet connected. Continue to create your Pelayo account.'
-          : 'Wallet connected. Continue to sign in.',
-      );
-    } catch (error) {
-      setNotice(`Wallet connection failed: ${error?.message || 'request rejected'}`);
-    } finally {
-      setAuthPending(false);
-    }
+    void authForm;
+    void setAuthForm;
+    void authMode;
+    setNotice('Wallet sign-in is not available in this launch. Use email or Google.');
   }
 
   async function signOut() {
@@ -1134,8 +1111,8 @@ export function AppProvider({ children }) {
     }
 
     if (supabase && supabaseCurrentUser) {
+      let recurringGroupId = null;
       try {
-        let recurringGroupId = null;
         if (recurrence?.frequency && recurrence.frequency !== 'none') {
           const { data: recurringGroup, error: recurringError } = await supabase
             .from('recurring_groups')
@@ -1187,6 +1164,9 @@ export function AppProvider({ children }) {
         );
         return { ok: true, count };
       } catch (error) {
+        if (recurringGroupId) {
+          await supabase.from('recurring_groups').delete().eq('id', recurringGroupId);
+        }
         setNotice(error?.message || 'Unable to create booking right now.');
         return { ok: false };
       }
@@ -1374,6 +1354,7 @@ export function AppProvider({ children }) {
     notice,
     setNotice,
     currentUser,
+    authReady,
     isAdmin,
     walletBalance,
     activeQuote,

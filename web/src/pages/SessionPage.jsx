@@ -340,7 +340,7 @@ export default function SessionPage() {
           {equipmentConflicts.length > 0 && (
             <p className="equipment-conflict-note">
               Heads up: {equipmentConflicts.map((item) => equipmentLabel(item)).join(', ')} is already reserved in at least one selected slot.
-              You can still book this time.
+              Remove those items or choose a different time before booking.
             </p>
           )}
 

@@ -11,16 +11,18 @@
     "test": "TZ=UTC vitest run",
     "test:watch": "TZ=UTC vitest",
     "test:smoke": "node scripts/smoke.mjs",
-    "test:smoke:vercel": "APP_BASE_URL=https://gym-app-navy-nine.vercel.app node scripts/smoke.mjs"
+    "test:smoke:vercel": "APP_BASE_URL=https://gym-app-navy-nine.vercel.app node scripts/smoke.mjs",
+    "test:matrix:vercel": "APP_BASE_URL=https://gym-app-navy-nine.vercel.app node scripts/live-matrix.mjs"
   },
   "dependencies": {
+    "@simplewebauthn/browser": "^13.3.0",
     "@supabase/supabase-js": "^2.99.3",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-router-dom": "^6.30.3",
-    "@simplewebauthn/browser": "^13.3.0"
+    "react-router-dom": "^6.30.3"
   },
   "devDependencies": {
+    "playwright-core": "^1.59.1",
     "vite": "^5.4.10",
     "vitest": "^3.2.4"
   }

@@ -19,10 +19,14 @@ function friendlyAuthError(search, hash) {
 export default function AuthCallbackPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { currentUser, authReady, setNotice } = useApp();
+  const { currentUser, authReady, setNotice, handleAuthCallback } = useApp();
   const errorMessage = useMemo(
     () => friendlyAuthError(location.search, location.hash),
     [location.search, location.hash],
+  );
+  const authCode = useMemo(
+    () => new URLSearchParams(location.search).get('code') || '',
+    [location.search],
   );
 
   useEffect(() => {
@@ -30,6 +34,23 @@ export default function AuthCallbackPage() {
       setNotice(errorMessage);
     }
   }, [errorMessage, setNotice]);
+
+  useEffect(() => {
+    if (errorMessage || !authCode || currentUser) return undefined;
+
+    let cancelled = false;
+
+    handleAuthCallback(authCode).then((result) => {
+      if (cancelled || result?.ok) return;
+      if (result?.message) {
+        setNotice(result.message);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authCode, currentUser, errorMessage, handleAuthCallback, setNotice]);
 
   useEffect(() => {
     if (!authReady || !currentUser) return;

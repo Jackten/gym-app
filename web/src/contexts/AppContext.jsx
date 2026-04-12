@@ -775,6 +775,36 @@ export function AppProvider({ children }) {
     setNotice('Signed out.');
   }
 
+  async function handleAuthCallback(code) {
+    if (!supabase || !isSupabaseConfigured) {
+      return { ok: false, message: 'Hosted auth is not configured.' };
+    }
+
+    const authCode = String(code || '').trim();
+    if (!authCode) {
+      return { ok: false, message: 'Missing auth code.' };
+    }
+
+    try {
+      setAuthPending(true);
+      const { error } = await supabase.auth.exchangeCodeForSession(authCode);
+      if (error) throw error;
+
+      const { data } = await supabase.auth.getSession();
+      setSupabaseSession(data.session || null);
+      setSupabaseUser(data.session?.user || null);
+      return { ok: Boolean(data.session?.user) };
+    } catch (error) {
+      return {
+        ok: false,
+        message: error?.message || 'Unable to finish sign-in from that link.',
+      };
+    } finally {
+      setAuthPending(false);
+      setAuthReady(true);
+    }
+  }
+
   // Wallet
   function handleTopUp(pkg) {
     if (!currentUser) {
@@ -1378,6 +1408,7 @@ export function AppProvider({ children }) {
     sendOtp,
     connectWallet,
     signOut,
+    handleAuthCallback,
     registrationResult,
     setRegistrationResult,
     passkeySupported: PASSKEY_PUBLIC_ENABLED && browserSupportsWebAuthn(),

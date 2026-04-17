@@ -1,7 +1,12 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.49.1';
 
 export const RP_NAME = 'Pelayo Wellness';
-export const PROD_RP_ID = 'gym-app-navy-nine.vercel.app';
+export const PRIMARY_PROD_RP_ID = 'pelayowellness.com';
+export const PRIMARY_PROD_ORIGINS = new Set([
+  'https://pelayowellness.com',
+  'https://www.pelayowellness.com',
+]);
+export const LEGACY_PROD_RP_ID = 'gym-app-navy-nine.vercel.app';
 
 const DEV_RP_IDS = new Set(['localhost', '127.0.0.1']);
 
@@ -80,16 +85,26 @@ export function resolveRpContext(request: Request) {
 
   const host = origin.hostname;
 
-  if (host === PROD_RP_ID) {
+  if (PRIMARY_PROD_ORIGINS.has(origin.origin)) {
     return {
-      rpId: PROD_RP_ID,
-      expectedOrigins: [`https://${PROD_RP_ID}`],
+      rpId: PRIMARY_PROD_RP_ID,
+      currentOrigin: origin.origin,
+      expectedOrigins: [...PRIMARY_PROD_ORIGINS],
+    };
+  }
+
+  if (host === LEGACY_PROD_RP_ID) {
+    return {
+      rpId: LEGACY_PROD_RP_ID,
+      currentOrigin: origin.origin,
+      expectedOrigins: [`https://${LEGACY_PROD_RP_ID}`],
     };
   }
 
   if (DEV_RP_IDS.has(host)) {
     return {
       rpId: host,
+      currentOrigin: origin.origin,
       expectedOrigins: [
         origin.origin,
         'http://localhost:5173',

@@ -35,7 +35,8 @@ Deno.serve(async (request) => {
     const { data: existingCredentials, error: credentialError } = await admin
       .from('passkey_credentials')
       .select('credential_id, transports')
-      .eq('user_id', user.id);
+      .eq('user_id', user.id)
+      .eq('rp_id', rpId);
 
     if (credentialError) {
       return jsonResponse({ error: credentialError.message }, 500);

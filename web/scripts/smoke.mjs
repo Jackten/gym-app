@@ -1,4 +1,4 @@
-const appBaseUrl = String(process.env.APP_BASE_URL || 'https://jackten.github.io/gym-app').replace(/\/+$/, '');
+const appBaseUrl = String(process.env.APP_BASE_URL || 'https://pelayowellness.com').replace(/\/+$/, '');
 
 const checks = [
   {

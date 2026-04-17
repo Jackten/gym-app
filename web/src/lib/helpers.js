@@ -34,6 +34,10 @@ export function sortByStartDesc(a, b) {
   return new Date(b.startISO) - new Date(a.startISO);
 }
 
+export function sortByStartAsc(a, b) {
+  return new Date(a.startISO) - new Date(b.startISO);
+}
+
 export function toTitleCase(value = '') {
   return value
     .replace(/[-_]/g, ' ')

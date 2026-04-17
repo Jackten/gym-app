@@ -23,7 +23,7 @@ Deno.serve(async (request) => {
       return jsonResponse({ error: 'Missing assertion response or challenge ID.' }, 400);
     }
 
-    const { rpId, expectedOrigins } = resolveRpContext(request);
+    const { rpId, expectedOrigins, currentOrigin } = resolveRpContext(request);
     const admin = getSupabaseAdmin();
     await cleanExpiredChallenges(admin);
 
@@ -46,8 +46,9 @@ Deno.serve(async (request) => {
 
     const { data: credentialRow, error: credentialError } = await admin
       .from('passkey_credentials')
-      .select('id, user_id, credential_id, public_key, counter, transports')
+      .select('id, user_id, rp_id, credential_id, public_key, counter, transports')
       .eq('credential_id', credentialId)
+      .eq('rp_id', rpId)
       .maybeSingle();
 
     if (credentialError) return jsonResponse({ error: credentialError.message }, 500);
@@ -93,7 +94,7 @@ Deno.serve(async (request) => {
       type: 'magiclink',
       email,
       options: {
-        redirectTo: 'https://gym-app-navy-nine.vercel.app/signin',
+        redirectTo: `${currentOrigin}/auth/callback`,
       },
     });
 

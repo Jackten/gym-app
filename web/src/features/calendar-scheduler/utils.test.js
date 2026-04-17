@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildSeriesSummary,
+  findOverlappingSessions,
   generateRecurringSessions,
   getSlotAvailability,
   getTwoWeekRange,
@@ -32,7 +33,7 @@ describe('calendar scheduler utils', () => {
     const sixPm = slots.find((slot) => slot.id === '18:00');
     const sixThirty = slots.find((slot) => slot.id === '18:30');
 
-    expect(sixPm.reserved).toBe(2);
+    expect(sixPm.reserved).toBe(1);
     expect(sixThirty.reserved).toBe(2);
     expect(sixThirty.remaining).toBe(3);
   });
@@ -75,5 +76,18 @@ describe('calendar scheduler utils', () => {
     );
 
     expect(summary).toBe('2 sessions from 2026-04-13 to 2026-04-27.');
+  });
+
+  it('detects overlapping session windows', () => {
+    const overlap = findOverlappingSessions([
+      { dateInput: '2026-04-16', timeInput: '08:00', durationMinutes: 30 },
+      { dateInput: '2026-04-16', timeInput: '08:15', durationMinutes: 30 },
+      { dateInput: '2026-04-16', timeInput: '10:00', durationMinutes: 30 },
+    ]);
+
+    expect(overlap).toEqual([
+      { dateInput: '2026-04-16', timeInput: '08:00', durationMinutes: 30 },
+      { dateInput: '2026-04-16', timeInput: '08:15', durationMinutes: 30 },
+    ]);
   });
 });

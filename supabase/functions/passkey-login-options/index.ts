@@ -19,12 +19,13 @@ Deno.serve(async (request) => {
 
     const { data: credentials, error: credentialError } = await admin
       .from('passkey_credentials')
-      .select('credential_id, transports');
+      .select('credential_id, transports')
+      .eq('rp_id', rpId);
 
     if (credentialError) return jsonResponse({ error: credentialError.message }, 500);
 
     if (!credentials?.length) {
-      return jsonResponse({ error: 'No passkeys registered yet. Use email or Google first.' }, 404);
+      return jsonResponse({ error: 'No passkeys registered on this site yet. Use email or Google first.' }, 404);
     }
 
     const options = await generateAuthenticationOptions({

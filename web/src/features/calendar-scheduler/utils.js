@@ -1,5 +1,5 @@
 import { formatDateInput, createLocalDate } from '../../lib/helpers';
-import { SLOT_CAPACITY, SLOT_TEMPLATES } from './config';
+import { BOOKING_SEGMENT_MINUTES, SLOT_CAPACITY, SLOT_TEMPLATES } from './config';
 
 export function toStartOfDay(date) {
   const d = new Date(date);
@@ -29,7 +29,7 @@ export function getTwoWeekRange(startDate = new Date()) {
 export function getSlotAvailability({ bookings, dateInput, now }) {
   return SLOT_TEMPLATES.map((slot) => {
     const start = createLocalDate(dateInput, slot.id);
-    const end = new Date(start.getTime() + 60 * 60_000);
+    const end = new Date(start.getTime() + BOOKING_SEGMENT_MINUTES * 60 * 1000);
 
     const reserved = bookings.filter((booking) => {
       if (booking.status !== 'confirmed') return false;
@@ -52,6 +52,27 @@ export function getSlotAvailability({ bookings, dateInput, now }) {
 
 export function normalizeSkipDates(skipDates) {
   return [...new Set(skipDates.filter(Boolean))].sort();
+}
+
+export function sessionsOverlap(a, b) {
+  if (!a || !b) return false;
+  const aStart = createLocalDate(a.dateInput, a.timeInput);
+  const aEnd = new Date(aStart.getTime() + Number(a.durationMinutes || 0) * 60 * 1000);
+  const bStart = createLocalDate(b.dateInput, b.timeInput);
+  const bEnd = new Date(bStart.getTime() + Number(b.durationMinutes || 0) * 60 * 1000);
+  return aStart < bEnd && bStart < aEnd;
+}
+
+export function findOverlappingSessions(sessions = []) {
+  for (let i = 0; i < sessions.length; i += 1) {
+    for (let j = i + 1; j < sessions.length; j += 1) {
+      if (sessionsOverlap(sessions[i], sessions[j])) {
+        return [sessions[i], sessions[j]];
+      }
+    }
+  }
+
+  return null;
 }
 
 export function generateRecurringSessions({

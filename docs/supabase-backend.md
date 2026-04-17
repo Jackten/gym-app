@@ -127,7 +127,8 @@ Because Google OAuth credentials are project-specific, complete this once:
 3. In the client settings, add:
    - **Authorized JavaScript origins**
      - `http://localhost:5173`
-     - `https://gym-app-navy-nine.vercel.app`
+     - `https://pelayowellness.com`
+     - `https://www.pelayowellness.com`
    - **Authorized redirect URIs**
      - `https://rgcnvghjmdkannkgocrj.supabase.co/auth/v1/callback`
 4. Copy Client ID + Client Secret
@@ -137,7 +138,8 @@ Because Google OAuth credentials are project-specific, complete this once:
    - Save
 6. In Supabase Dashboard → **Authentication** → **URL Configuration** verify Site URL/additional redirect URLs include:
    - `http://localhost:5173`
-   - `https://gym-app-navy-nine.vercel.app`
+   - `https://pelayowellness.com`
+   - `https://www.pelayowellness.com`
 
 > Supabase Management API automation for provider setup was not performed in this pass (no management PAT available in workspace env), so provider enablement remains a dashboard step.
 

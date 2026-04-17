@@ -93,6 +93,7 @@ Deno.serve(async (request) => {
     const { error: upsertError } = await admin.from('passkey_credentials').upsert(
       {
         user_id: user.id,
+        rp_id: rpId,
         credential_id: credentialId,
         public_key: isoBase64URL.fromBuffer(publicKeyBuffer),
         counter,

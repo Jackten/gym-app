@@ -4,7 +4,7 @@ import { execFileSync } from 'node:child_process';
 import { createClient } from '@supabase/supabase-js';
 import { chromium } from 'playwright-core';
 
-const APP_BASE_URL = String(process.env.APP_BASE_URL || 'https://gym-app-navy-nine.vercel.app').replace(/\/+$/, '');
+const APP_BASE_URL = String(process.env.APP_BASE_URL || 'https://pelayowellness.com').replace(/\/+$/, '');
 const TEST_EMAIL = process.env.PELAYO_TEST_EMAIL || 'marcus.chen@agentmail.to';
 const TEST_NAME = process.env.PELAYO_TEST_NAME || 'Marcus Chen';
 const CHROME_PATH = process.env.PLAYWRIGHT_CHROME_PATH || '/usr/bin/google-chrome';

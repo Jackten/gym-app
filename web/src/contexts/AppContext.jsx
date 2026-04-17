@@ -16,10 +16,11 @@ import {
   findUserByIdentity,
   upsertUserFromIdentity,
   addTransaction,
+  sortByStartAsc,
   sortByStartDesc,
   createLocalDate,
 } from '../lib/helpers';
-import { SLOT_CAPACITY, EQUIPMENT_FLOW_CATEGORIES } from '../features/calendar-scheduler/config';
+import { BOOKING_SEGMENT_MINUTES, SLOT_CAPACITY, EQUIPMENT_FLOW_CATEGORIES } from '../features/calendar-scheduler/config';
 import { getSlotAvailability } from '../features/calendar-scheduler/utils';
 import { getSupabaseClient, isSupabaseConfigured } from '../lib/supabaseClient';
 import {
@@ -34,6 +35,7 @@ import {
 } from '../lib/passkeyAuth';
 import { PASSKEY_PUBLIC_ENABLED } from '../lib/constants';
 import { getAuthCallbackUrl } from '../lib/authRedirect';
+import { WAIVER_VERSION } from '../lib/waiver';
 
 const AppContext = createContext(null);
 
@@ -133,6 +135,10 @@ export function AppProvider({ children }) {
   const [passkeyLoading, setPasskeyLoading] = useState(false);
   const [passkeyActionState, setPasskeyActionState] = useState('idle');
   const [passkeyActionError, setPasskeyActionError] = useState('');
+  const [waiverAcceptance, setWaiverAcceptance] = useState(null);
+  const [waiverLoading, setWaiverLoading] = useState(false);
+  const [waiverSaving, setWaiverSaving] = useState(false);
+  const [waiverError, setWaiverError] = useState('');
 
   const adminEmails = useMemo(
     () => normalizeAdminEmails(import.meta.env.VITE_ADMIN_EMAILS),
@@ -287,6 +293,7 @@ export function AppProvider({ children }) {
         setSupabaseProfile(null);
         setSupabaseBookings([]);
         setPasskeyFactors([]);
+        setWaiverAcceptance(null);
       }
     });
 
@@ -302,6 +309,7 @@ export function AppProvider({ children }) {
     ensureSupabaseProfile().finally(() => {
       hydrateSupabaseData();
       loadPasskeyFactors();
+      loadWaiverAcceptance();
     });
   }, [supabaseUser, ensureSupabaseProfile, hydrateSupabaseData]);
 
@@ -313,11 +321,15 @@ export function AppProvider({ children }) {
   const allBookings = useMemo(() => [...effectiveBookings].sort(sortByStartDesc), [effectiveBookings]);
 
   const upcomingBookings = useMemo(() => {
-    return myBookings.filter((b) => b.status === 'confirmed' && new Date(b.startISO) > now);
+    return myBookings
+      .filter((b) => b.status === 'confirmed' && new Date(b.startISO) > now)
+      .sort(sortByStartAsc);
   }, [myBookings, now]);
 
   const pastBookings = useMemo(() => {
-    return myBookings.filter((b) => b.status !== 'confirmed' || new Date(b.startISO) <= now);
+    return myBookings
+      .filter((b) => b.status !== 'confirmed' || new Date(b.startISO) <= now)
+      .sort(sortByStartDesc);
   }, [myBookings, now]);
 
   const landingStats = useMemo(() => {
@@ -372,7 +384,7 @@ export function AppProvider({ children }) {
     try {
       const { data, error } = await supabase
         .from('passkey_credentials')
-        .select('id, credential_id, friendly_name, device_type, backed_up, transports, created_at, last_used_at')
+        .select('id, rp_id, credential_id, friendly_name, device_type, backed_up, transports, created_at, last_used_at')
         .eq('user_id', supabaseUser.id)
         .order('created_at', { ascending: false });
 
@@ -380,6 +392,7 @@ export function AppProvider({ children }) {
 
       const factors = (data || []).map((row) => ({
         id: row.id,
+        rp_id: row.rp_id,
         credentialId: row.credential_id,
         friendly_name: row.friendly_name,
         status: 'verified',
@@ -398,6 +411,104 @@ export function AppProvider({ children }) {
       return [];
     } finally {
       setPasskeyLoading(false);
+    }
+  }
+
+  async function loadWaiverAcceptance() {
+    if (!supabase || !supabaseUser) {
+      setWaiverAcceptance(null);
+      return null;
+    }
+
+    setWaiverLoading(true);
+    setWaiverError('');
+    try {
+      const { data, error } = await supabase
+        .from('waiver_acceptances')
+        .select('id, waiver_version, legal_name, emergency_contact_name, emergency_contact_phone, signature_name, accepted_at, updated_at')
+        .eq('user_id', supabaseUser.id)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      setWaiverAcceptance(data || null);
+      return data || null;
+    } catch (error) {
+      setWaiverAcceptance(null);
+      setWaiverError(error?.message || 'Unable to load waiver right now.');
+      return null;
+    } finally {
+      setWaiverLoading(false);
+    }
+  }
+
+  async function saveWaiverAcceptance(formInput) {
+    if (!supabase || !supabaseUser) {
+      const message = 'Sign in first.';
+      setWaiverError(message);
+      setNotice(message);
+      return { ok: false, message };
+    }
+
+    const payload = {
+      legalName: String(formInput?.legalName || '').trim(),
+      emergencyContactName: String(formInput?.emergencyContactName || '').trim(),
+      emergencyContactPhone: normalizePhone(formInput?.emergencyContactPhone || ''),
+      signatureName: String(formInput?.signatureName || '').trim(),
+      agreed: formInput?.agreed === true,
+    };
+
+    if (!payload.legalName) {
+      const message = 'Enter your full legal name.';
+      setWaiverError(message);
+      return { ok: false, message };
+    }
+
+    if (!payload.signatureName) {
+      const message = 'Type your name as a digital signature.';
+      setWaiverError(message);
+      return { ok: false, message };
+    }
+
+    if (!payload.agreed) {
+      const message = 'You must confirm the waiver before submitting it.';
+      setWaiverError(message);
+      return { ok: false, message };
+    }
+
+    setWaiverSaving(true);
+    setWaiverError('');
+    try {
+      const { data, error } = await supabase
+        .from('waiver_acceptances')
+        .upsert(
+          {
+            user_id: supabaseUser.id,
+            waiver_version: WAIVER_VERSION,
+            legal_name: payload.legalName,
+            emergency_contact_name: payload.emergencyContactName || null,
+            emergency_contact_phone: payload.emergencyContactPhone || null,
+            signature_name: payload.signatureName,
+            user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
+            accepted_at: new Date().toISOString(),
+          },
+          { onConflict: 'user_id' },
+        )
+        .select('id, waiver_version, legal_name, emergency_contact_name, emergency_contact_phone, signature_name, accepted_at, updated_at')
+        .single();
+
+      if (error) throw error;
+
+      setWaiverAcceptance(data || null);
+      setNotice('Digital waiver saved.');
+      return { ok: true, data };
+    } catch (error) {
+      const message = error?.message || 'Unable to save waiver right now.';
+      setWaiverError(message);
+      setNotice(message);
+      return { ok: false, message };
+    } finally {
+      setWaiverSaving(false);
     }
   }
 
@@ -1084,7 +1195,7 @@ export function AppProvider({ children }) {
   const getSlotInfo = useCallback(
     (dateStr, hour) => {
       const start = createLocalDate(dateStr, `${String(hour).padStart(2, '0')}:00`);
-      const end = new Date(start.getTime() + 60 * 60_000);
+      const end = new Date(start.getTime() + BOOKING_SEGMENT_MINUTES * 60 * 1000);
 
       const occupancy = getOccupancyByBlock({
         bookings: effectiveBookings,
@@ -1107,7 +1218,7 @@ export function AppProvider({ children }) {
       });
       const demandTier = getDemandTier(demandCount);
       const estCredits = Math.round(
-        getBaseCredits(60) * demandTier.multiplier * occupancyMultiplier,
+        getBaseCredits(BOOKING_SEGMENT_MINUTES) * demandTier.multiplier * occupancyMultiplier,
       );
 
       return {
@@ -1131,13 +1242,15 @@ export function AppProvider({ children }) {
 
   async function createManualBookings({ sessions, equipmentSelection, note, recurrence }) {
     if (!currentUser) {
-      setNotice('Sign in first.');
-      return { ok: false };
+      const message = 'Sign in first.';
+      setNotice(message);
+      return { ok: false, message };
     }
 
     if (!Array.isArray(sessions) || sessions.length === 0) {
-      setNotice('No sessions to book.');
-      return { ok: false };
+      const message = 'No sessions to book.';
+      setNotice(message);
+      return { ok: false, message };
     }
 
     if (supabase && supabaseCurrentUser) {
@@ -1175,8 +1288,9 @@ export function AppProvider({ children }) {
         );
         return { ok: true, count };
       } catch (error) {
-        setNotice(error?.message || 'Unable to create booking right now.');
-        return { ok: false };
+        const message = error?.message || 'Unable to create booking right now.';
+        setNotice(message);
+        return { ok: false, message };
       }
     }
 
@@ -1398,6 +1512,12 @@ export function AppProvider({ children }) {
     registerPasskey,
     verifyPasskeyForCurrentSession,
     removePasskey,
+    waiverAcceptance,
+    waiverLoading,
+    waiverSaving,
+    waiverError,
+    loadWaiverAcceptance,
+    saveWaiverAcceptance,
 
     // Booking
     buildQuote,

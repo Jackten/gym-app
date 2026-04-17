@@ -6,6 +6,8 @@ import {
   equipmentLabel,
   formatDuration,
   normalizePhone,
+  sortByStartAsc,
+  sortByStartDesc,
 } from './helpers';
 
 describe('helpers', () => {
@@ -37,5 +39,25 @@ describe('helpers', () => {
     expect(formatDuration(30)).toBe('30 min');
     expect(formatDuration(60)).toBe('1 hr');
     expect(formatDuration(90)).toBe('1 hr 30 min');
+  });
+
+  it('sorts bookings by start time in both directions', () => {
+    const bookings = [
+      { startISO: '2026-04-20T10:00:00.000Z' },
+      { startISO: '2026-04-18T10:00:00.000Z' },
+      { startISO: '2026-04-19T10:00:00.000Z' },
+    ];
+
+    expect([...bookings].sort(sortByStartAsc).map((booking) => booking.startISO)).toEqual([
+      '2026-04-18T10:00:00.000Z',
+      '2026-04-19T10:00:00.000Z',
+      '2026-04-20T10:00:00.000Z',
+    ]);
+
+    expect([...bookings].sort(sortByStartDesc).map((booking) => booking.startISO)).toEqual([
+      '2026-04-20T10:00:00.000Z',
+      '2026-04-19T10:00:00.000Z',
+      '2026-04-18T10:00:00.000Z',
+    ]);
   });
 });

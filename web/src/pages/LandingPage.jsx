@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Clock3, MapPin, Sparkles } from 'lucide-react';
+import { Clock3, MapPin } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
 import {
   Button,
@@ -67,19 +67,20 @@ export default function LandingPage() {
         {/* Hero copy */}
         <div className="relative z-10 flex h-[calc(100%-5rem)] flex-col justify-end px-6 md:px-12 lg:px-20 pb-16 md:pb-24">
           <div className="max-w-3xl animate-fade-up">
-            <Eyebrow className="mb-4">Private training studio</Eyebrow>
+            <Eyebrow className="mb-4">Private gym</Eyebrow>
             <h1 className="font-display font-light text-[clamp(2.5rem,7vw,4.75rem)] leading-[1.04] tracking-[-0.015em] text-ivory">
-              Private training.
+              Private gym.
               <br />
-              By appointment.
+              Booked by the hour.
             </h1>
             <p className="mt-6 max-w-xl text-body-lg text-oat">
-              One-on-one coaching in a studio built for focus. Quiet, exacting,
-              and booked to the hour — train when the room is yours alone.
+              A small, private floor. Book the hour for yourself, bring a
+              partner, or reserve alongside one of our trainers. Never more
+              than a handful of people in the room.
             </p>
             <div className="mt-10 flex flex-wrap items-center gap-4">
               <Button size="lg" onClick={() => navigate('/register')}>
-                Book your first session
+                Book an hour
               </Button>
               <Button
                 size="lg"
@@ -105,15 +106,14 @@ export default function LandingPage() {
             </h2>
             <div className="mt-8 max-w-prose space-y-5 text-body-lg text-oat">
               <p>
-                Pelayo is a studio, not a gym. No crowds, no queues for racks,
-                no music fighting for your attention. Each session is yours —
-                planned around your body, your week, and what the work in front
-                of you actually demands.
+                Pelayo is a private gym. The floor is small, and reservations
+                are capped — you might share it with two or three others, but
+                never a crowd, never a queue for the rack.
               </p>
               <p>
-                We train. We recover. We return. The same room, the same
-                coaches, the same standards — session after session, year after
-                year.
+                Book an hour for yourself, bring a partner, or book alongside
+                one of our trainers. The room is yours for the time you
+                reserve.
               </p>
             </div>
           </div>
@@ -138,102 +138,42 @@ export default function LandingPage() {
       <section className="px-6 md:px-12 lg:px-20 py-24 md:py-32 border-t border-ash bg-espresso/40">
         <div className="mx-auto max-w-[1280px]">
           <div className="max-w-xl mb-12 md:mb-16">
-            <Eyebrow className="mb-4">What we offer</Eyebrow>
+            <Eyebrow className="mb-4">How it works</Eyebrow>
             <h2 className="font-display font-light text-h1 md:text-[2.75rem] text-ivory leading-tight tracking-tight">
-              Three ways to train.
+              Three ways to book.
             </h2>
           </div>
           <div className="grid gap-6 md:grid-cols-3">
             <Card feature padding="lg">
-              <CardEyebrow>Private</CardEyebrow>
-              <CardTitle className="mt-2">One-on-one</CardTitle>
+              <CardEyebrow>Solo</CardEyebrow>
+              <CardTitle className="mt-2">Open booking</CardTitle>
               <CardBody className="mt-4">
                 <p>
-                  Sixty uninterrupted minutes with your coach. Programmed to the
-                  session, assessed every four weeks.
+                  Reserve the hour for yourself. A couple of others may be on
+                  the floor — no more than that.
                 </p>
               </CardBody>
             </Card>
             <Card feature padding="lg">
-              <CardEyebrow>Semi-private</CardEyebrow>
-              <CardTitle className="mt-2">Pairs &amp; partners</CardTitle>
+              <CardEyebrow>Partner</CardEyebrow>
+              <CardTitle className="mt-2">Bring someone</CardTitle>
               <CardBody className="mt-4">
                 <p>
-                  Train alongside a partner on a program matched to the two of
-                  you. Small group, shared focus.
+                  Book with a partner and share the floor. Same hour, same
+                  space, your own plan.
                 </p>
               </CardBody>
             </Card>
             <Card feature padding="lg">
-              <CardEyebrow>Recovery</CardEyebrow>
-              <CardTitle className="mt-2">Restore &amp; mobility</CardTitle>
+              <CardEyebrow>With a trainer</CardEyebrow>
+              <CardTitle className="mt-2">Guided session</CardTitle>
               <CardBody className="mt-4">
                 <p>
-                  Breath, mobility, and soft-tissue work. Book between heavy
-                  sessions or as a session of its own.
+                  Book alongside one of our trainers. Programming, form, and
+                  focus for the hour you&apos;re in.
                 </p>
               </CardBody>
             </Card>
-          </div>
-        </div>
-      </section>
-
-      {/* ──────────────────── MEMBERSHIP ──────────────────── */}
-      <section className="px-6 md:px-12 lg:px-20 py-24 md:py-32 border-t border-ash">
-        <div className="mx-auto max-w-[1280px] grid gap-12 md:grid-cols-[1.1fr_1fr] md:gap-20 items-center">
-          <div className="relative aspect-[5/6] w-full overflow-hidden rounded-lg order-last md:order-first">
-            <img
-              src={`${IMG}hero-barbell.jpg`}
-              alt=""
-              aria-hidden="true"
-              loading="lazy"
-              decoding="async"
-              className="h-full w-full object-cover"
-            />
-            <div
-              aria-hidden="true"
-              className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-onyx/70"
-            />
-          </div>
-          <div>
-            <Eyebrow className="mb-4">Membership</Eyebrow>
-            <h2 className="font-display font-light text-h1 md:text-[2.75rem] text-ivory leading-tight tracking-tight">
-              Train as often
-              <br />
-              as you need.
-            </h2>
-            <p className="mt-6 max-w-prose text-body-lg text-oat">
-              Membership is month-to-month with priority scheduling. Cancel any
-              session up to twelve hours before it starts.
-            </p>
-
-            <div className="mt-10 rounded-lg border border-ash bg-espresso p-8">
-              <div className="flex items-baseline gap-2">
-                <span className="font-display font-light text-display text-ivory leading-none">
-                  $420
-                </span>
-                <span className="text-body text-stone">/ month</span>
-              </div>
-              <ul className="mt-6 space-y-3 text-body text-oat">
-                <li className="flex items-start gap-3">
-                  <Sparkles size={16} strokeWidth={1.5} className="mt-1 text-brass shrink-0" />
-                  Eight private sessions per month
-                </li>
-                <li className="flex items-start gap-3">
-                  <Sparkles size={16} strokeWidth={1.5} className="mt-1 text-brass shrink-0" />
-                  Priority booking window
-                </li>
-                <li className="flex items-start gap-3">
-                  <Sparkles size={16} strokeWidth={1.5} className="mt-1 text-brass shrink-0" />
-                  Quarterly assessment and program review
-                </li>
-              </ul>
-              <div className="mt-8">
-                <Button size="lg" onClick={() => navigate('/register')}>
-                  Request membership
-                </Button>
-              </div>
-            </div>
           </div>
         </div>
       </section>
@@ -246,12 +186,12 @@ export default function LandingPage() {
             <h2 className="font-display font-light text-h1 md:text-[2.75rem] text-ivory leading-tight tracking-tight">
               A single room,
               <br />
-              built for the work.
+              open any hour.
             </h2>
             <p className="mt-6 max-w-prose text-body-lg text-oat">
               Warm woods, directional light, and equipment chosen for
-              longevity. Reservations are private — no walk-ins, no shared
-              floor, no distraction.
+              longevity. Open twenty-four hours a day — book the hour that
+              suits you.
             </p>
             <dl className="mt-10 grid grid-cols-2 gap-y-6 gap-x-8 max-w-md">
               <div>
@@ -260,7 +200,7 @@ export default function LandingPage() {
                   Location
                 </dt>
                 <dd className="mt-2 text-body text-ivory">
-                  By appointment
+                  Members only
                   <br />
                   Address shared on booking
                 </dd>
@@ -271,9 +211,9 @@ export default function LandingPage() {
                   Hours
                 </dt>
                 <dd className="mt-2 text-body text-ivory">
-                  Mon–Fri · 6:00–20:00
+                  Open 24/7
                   <br />
-                  Sat · 7:00–13:00
+                  Book any hour
                 </dd>
               </div>
             </dl>
@@ -308,7 +248,7 @@ export default function LandingPage() {
           </div>
           <div className="flex flex-wrap items-center gap-4">
             <Button size="lg" onClick={() => navigate('/register')}>
-              Book your first session
+              Book an hour
             </Button>
             <Button
               size="lg"
@@ -329,7 +269,7 @@ export default function LandingPage() {
             <span>© {new Date().getFullYear()} Pelayo Wellness</span>
           </div>
           <div className="flex gap-6">
-            <span>Private training by appointment</span>
+            <span>Private gym · booked by the hour</span>
           </div>
         </div>
       </footer>

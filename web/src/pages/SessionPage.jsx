@@ -4,6 +4,7 @@ import { ArrowLeft } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
 import { formatDateInput, createLocalDate, equipmentLabel } from '../lib/helpers';
 import { Button, Eyebrow } from '../components/ui';
+import { BOOKING_SEGMENT_MINUTES } from '../features/calendar-scheduler/config';
 import TwoWeekCalendar from '../features/calendar-scheduler/components/TwoWeekCalendar';
 import SlotCardList from '../features/calendar-scheduler/components/SlotCardList';
 import EquipmentSelector from '../features/calendar-scheduler/components/EquipmentSelector';
@@ -94,7 +95,7 @@ export default function SessionPage() {
 
     const busyAcrossSelectedSlots = selectedSlotsFlat.reduce((busySet, slot) => {
       const start = createLocalDate(slot.dateInput, slot.id);
-      const end = new Date(start.getTime() + 60 * 60_000);
+      const end = new Date(start.getTime() + BOOKING_SEGMENT_MINUTES * 60_000);
       const busy = getBusyEquipment(start, end);
       busy.forEach((item) => busySet.add(item));
       return busySet;
@@ -225,7 +226,7 @@ export default function SessionPage() {
       const sessionsForSlot = generateRecurringSessions({
         selectedDate: slot.dateInput,
         time: slot.id,
-        durationMinutes: 60,
+        durationMinutes: BOOKING_SEGMENT_MINUTES,
         recurrence: {
           ...recurrence,
           weekdays: effectiveWeekdays,

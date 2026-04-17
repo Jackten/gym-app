@@ -255,7 +255,10 @@ async function buildAuthenticatedContext(browser) {
 
 async function ensureAuthenticated(page) {
   await page.goto(`${APP_BASE_URL}/account`, { waitUntil: 'domcontentloaded' });
-  await page.getByText(TEST_EMAIL, { exact: true }).waitFor({ timeout: 12_000 });
+  await page.getByRole('heading', { name: 'Profile' }).waitFor({ timeout: 12_000 });
+  await page.locator('.account-field .field-value').filter({ hasText: TEST_EMAIL }).first().waitFor({
+    timeout: 12_000,
+  });
   assert(!page.url().includes('/signin'), 'Preloaded Supabase session did not establish a browser login.');
   logStep('Authenticated successfully');
 }
@@ -520,7 +523,7 @@ async function createAndMutateRecurringSeries(page) {
 
   const { dateInput: businessToday } = getBusinessNowParts();
   const seriesIncludesToday = confirmed.some((row) => row.slot_date === businessToday);
-  const targetRecurringBooking = confirmed[confirmed.length - 1];
+  const targetRecurringBooking = confirmed[0];
   const originalRecurringTime = targetRecurringBooking.start_time.slice(0, 5);
   await page.goto(`${APP_BASE_URL}/bookings`, { waitUntil: 'domcontentloaded' });
   await page.getByRole('button', { name: /Edit one \/ all/i }).first().click();

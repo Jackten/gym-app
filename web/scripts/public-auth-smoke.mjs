@@ -98,7 +98,7 @@ async function requestSigninEmail(page) {
     const noticeText = ((await notice.textContent()) || '').replace(/\s+/g, ' ').trim();
     logStep(`UI notice: ${noticeText}`);
 
-    const secondsMatch = noticeText.match(/wait (\d+)s/i);
+    const secondsMatch = noticeText.match(/wait (\d+)s/i) || noticeText.match(/after (\d+) seconds/i);
     if (secondsMatch) {
       await sleep((Number(secondsMatch[1]) + 1) * 1_000);
       continue;
@@ -142,7 +142,10 @@ async function run() {
       timeout: 30_000,
     });
     await page.goto(`${APP_BASE_URL}/account`, { waitUntil: 'domcontentloaded', timeout: 120_000 });
-    await page.getByText(TEST_EMAIL, { exact: true }).waitFor({ timeout: 15_000 });
+    await page.getByRole('heading', { name: 'Profile' }).waitFor({ timeout: 15_000 });
+    await page.locator('.account-field .field-value').filter({ hasText: TEST_EMAIL }).first().waitFor({
+      timeout: 15_000,
+    });
 
     logStep(`FINAL_URL ${page.url()}`);
     logStep('AUTH_SMOKE_OK');

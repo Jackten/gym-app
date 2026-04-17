@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { KeyRound, Mail, Smartphone, Wallet, Fingerprint, LogOut } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
 import { toTitleCase, abbreviateWallet } from '../lib/helpers';
+import { WAIVER_SECTIONS, emptyWaiverForm } from '../lib/waiver';
 import { Button, Eyebrow } from '../components/ui';
 
 function ProviderIcon({ provider }) {
@@ -29,15 +30,36 @@ export default function AccountPage() {
     loadPasskeyFactors,
     registerPasskey,
     removePasskey,
+    waiverAcceptance,
+    waiverLoading,
+    waiverSaving,
+    waiverError,
+    saveWaiverAcceptance,
   } = useApp();
   const navigate = useNavigate();
   const [passkeyName, setPasskeyName] = useState('');
+  const [waiverForm, setWaiverForm] = useState(() => emptyWaiverForm(currentUser));
 
   useEffect(() => {
     if (currentUser) {
       loadPasskeyFactors();
     }
   }, [currentUser]);
+
+  useEffect(() => {
+    if (waiverAcceptance) {
+      setWaiverForm({
+        legalName: waiverAcceptance.legal_name || currentUser?.name || '',
+        emergencyContactName: waiverAcceptance.emergency_contact_name || '',
+        emergencyContactPhone: waiverAcceptance.emergency_contact_phone || '',
+        signatureName: waiverAcceptance.signature_name || currentUser?.name || '',
+        agreed: true,
+      });
+      return;
+    }
+
+    setWaiverForm(emptyWaiverForm(currentUser));
+  }, [waiverAcceptance, currentUser]);
 
   if (!currentUser) return null;
 
@@ -55,6 +77,14 @@ export default function AccountPage() {
   })();
 
   const hasPasskeys = passkeyFactors.length > 0;
+  const waiverAcceptedAt = waiverAcceptance?.accepted_at
+    ? new Date(waiverAcceptance.accepted_at).toLocaleString()
+    : '';
+  const describePasskeySite = (rpId) => {
+    if (rpId === 'pelayowellness.com') return 'Ready for pelayowellness.com';
+    if (rpId === 'gym-app-navy-nine.vercel.app') return 'Legacy passkey from the old Vercel site';
+    return rpId ? `Registered for ${rpId}` : 'Registered passkey';
+  };
 
   return (
     <div className="page-account pb-8 animate-fade-up">
@@ -191,6 +221,9 @@ export default function AccountPage() {
                       <span className="muted" style={{ fontSize: '0.72rem' }}>
                         {factor.status === 'verified' ? 'Verified' : 'Pending verification'}
                       </span>
+                      <span className="muted" style={{ fontSize: '0.72rem' }}>
+                        {describePasskeySite(factor.rp_id)}
+                      </span>
                     </div>
                     <button
                       type="button"
@@ -215,13 +248,100 @@ export default function AccountPage() {
       <section className="card">
         <h3>Waiver & Liability</h3>
         <p className="muted section-desc">
-          Signed waiver records are still handled outside this app during the scheduling-first launch.
+          Complete your digital waiver once, then the account will show it as signed.
         </p>
-        <div className="waiver-status">
-          <span className="badge">Handled offline</span>
+        <div className="waiver-status" style={{ marginBottom: '0.9rem' }}>
+          <span className="badge">{waiverAcceptance ? 'Signed digitally' : 'Needs signature'}</span>
           <span className="muted" style={{ fontSize: '0.82rem' }}>
-            Staff should confirm your waiver before in-person sessions when needed
+            {waiverAcceptance
+              ? `Accepted ${waiverAcceptedAt}`
+              : 'Sign this before your first in-person session.'}
           </span>
+        </div>
+
+        {WAIVER_SECTIONS.map((section) => (
+          <div key={section.heading} style={{ marginBottom: '0.85rem' }}>
+            <strong style={{ display: 'block', marginBottom: '0.2rem' }}>{section.heading}</strong>
+            <p className="muted" style={{ margin: 0, fontSize: '0.88rem', lineHeight: 1.5 }}>
+              {section.body}
+            </p>
+          </div>
+        ))}
+
+        <label>
+          Full legal name
+          <input
+            type="text"
+            value={waiverForm.legalName}
+            onChange={(e) => setWaiverForm((prev) => ({ ...prev, legalName: e.target.value }))}
+            placeholder="Your legal name"
+            disabled={waiverSaving}
+          />
+        </label>
+
+        <label style={{ marginTop: '0.75rem' }}>
+          Emergency contact name
+          <input
+            type="text"
+            value={waiverForm.emergencyContactName}
+            onChange={(e) => setWaiverForm((prev) => ({ ...prev, emergencyContactName: e.target.value }))}
+            placeholder="Who should we contact?"
+            disabled={waiverSaving}
+          />
+        </label>
+
+        <label style={{ marginTop: '0.75rem' }}>
+          Emergency contact phone
+          <input
+            type="tel"
+            value={waiverForm.emergencyContactPhone}
+            onChange={(e) => setWaiverForm((prev) => ({ ...prev, emergencyContactPhone: e.target.value }))}
+            placeholder="Phone number"
+            disabled={waiverSaving}
+          />
+        </label>
+
+        <label style={{ marginTop: '0.75rem' }}>
+          Signature
+          <input
+            type="text"
+            value={waiverForm.signatureName}
+            onChange={(e) => setWaiverForm((prev) => ({ ...prev, signatureName: e.target.value }))}
+            placeholder="Type your full name"
+            disabled={waiverSaving}
+          />
+        </label>
+
+        <label className="waiver-check" style={{ marginTop: '0.75rem' }}>
+          <input
+            type="checkbox"
+            checked={waiverForm.agreed}
+            onChange={(e) => setWaiverForm((prev) => ({ ...prev, agreed: e.target.checked }))}
+            disabled={waiverSaving}
+          />
+          <span>
+            I have read this waiver, understand it, and agree to sign it electronically.
+          </span>
+        </label>
+
+        {waiverError && (
+          <p style={{ marginTop: '0.75rem', color: '#fca5a5', fontSize: '0.82rem' }}>
+            {waiverError}
+          </p>
+        )}
+
+        {waiverLoading && (
+          <p className="muted" style={{ marginTop: '0.75rem' }}>Loading waiver status…</p>
+        )}
+
+        <div className="row" style={{ marginTop: '0.9rem' }}>
+          <button
+            type="button"
+            onClick={() => saveWaiverAcceptance(waiverForm)}
+            disabled={waiverSaving}
+          >
+            {waiverSaving ? 'Saving…' : waiverAcceptance ? 'Update waiver' : 'Sign waiver'}
+          </button>
         </div>
       </section>
 
@@ -234,7 +354,7 @@ export default function AccountPage() {
         <div className="account-fields">
           <div className="account-field">
             <span className="field-label">Default duration</span>
-            <span className="field-value">60 min</span>
+            <span className="field-value">30 min</span>
           </div>
           <div className="account-field">
             <span className="field-label">Preferred workout</span>

@@ -38,6 +38,10 @@ export function sortByStartAsc(a, b) {
   return new Date(a.startISO) - new Date(b.startISO);
 }
 
+export function pickNextUpcomingBooking(bookings = []) {
+  return Array.isArray(bookings) && bookings.length > 0 ? bookings[0] : null;
+}
+
 export function toTitleCase(value = '') {
   return value
     .replace(/[-_]/g, ' ')

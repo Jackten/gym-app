@@ -6,6 +6,7 @@ import {
   equipmentLabel,
   formatDuration,
   normalizePhone,
+  pickNextUpcomingBooking,
   sortByStartAsc,
   sortByStartDesc,
 } from './helpers';
@@ -59,5 +60,16 @@ describe('helpers', () => {
       '2026-04-19T10:00:00.000Z',
       '2026-04-18T10:00:00.000Z',
     ]);
+  });
+
+  it('picks the earliest upcoming booking as the next session', () => {
+    const bookings = [
+      { startISO: '2026-04-18T12:00:00.000Z' },
+      { startISO: '2026-04-19T12:00:00.000Z' },
+      { startISO: '2026-04-20T12:00:00.000Z' },
+    ];
+
+    expect(pickNextUpcomingBooking(bookings)?.startISO).toBe('2026-04-18T12:00:00.000Z');
+    expect(pickNextUpcomingBooking([])).toBeNull();
   });
 });

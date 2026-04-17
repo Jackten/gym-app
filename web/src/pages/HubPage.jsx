@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Calendar, ArrowRight, Clock3 } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
-import { formatDateTime } from '../lib/helpers';
+import { formatDateTime, pickNextUpcomingBooking } from '../lib/helpers';
 import { Button, Card, CardBody, CardEyebrow, CardTitle, Eyebrow } from '../components/ui';
 
 // HubPage — member landing after sign-in.
@@ -15,9 +15,7 @@ export default function HubPage() {
 
   if (!currentUser) return null;
 
-  const nextBooking = upcomingBookings.length > 0
-    ? upcomingBookings[upcomingBookings.length - 1]
-    : null;
+  const nextBooking = pickNextUpcomingBooking(upcomingBookings);
 
   const firstName = (currentUser.name || '').split(' ')[0] || currentUser.name;
 

@@ -1,7 +1,9 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ArrowLeft } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
 import { formatDateInput, createLocalDate, equipmentLabel } from '../lib/helpers';
+import { Button, Eyebrow } from '../components/ui';
 import TwoWeekCalendar from '../features/calendar-scheduler/components/TwoWeekCalendar';
 import SlotCardList from '../features/calendar-scheduler/components/SlotCardList';
 import EquipmentSelector from '../features/calendar-scheduler/components/EquipmentSelector';
@@ -272,12 +274,76 @@ export default function SessionPage() {
     }
   }
 
+  const STEPS = [
+    { id: 'slot', label: 'Times' },
+    { id: 'equipment', label: 'Equipment' },
+    { id: 'recurrence', label: 'Repeat' },
+    { id: 'review', label: 'Review' },
+  ];
+  const currentStepIndex = STEPS.findIndex((s) => s.id === step);
+
   return (
-    <div className="page-session">
+    <div className="page-session pb-8 animate-fade-up">
+      {/* Wizard header */}
+      <header className="flex items-start justify-between gap-4 mb-6">
+        <div>
+          <Eyebrow className="mb-2">Reserve</Eyebrow>
+          <h2 className="font-display font-light text-h1 leading-tight tracking-tight text-ivory">
+            Book a session.
+          </h2>
+          <p className="mt-2 max-w-xl text-body text-oat">
+            Pick your times, then confirm.
+          </p>
+        </div>
+        <Button variant="tertiary" size="sm" onClick={() => navigate('/home')}>
+          <ArrowLeft size={14} strokeWidth={1.5} />
+          Back
+        </Button>
+      </header>
+
+      {/* Progress trail */}
+      <ol aria-label="Booking steps" className="flex items-center gap-3 mb-8 overflow-x-auto">
+        {STEPS.map((s, i) => {
+          const done = i < currentStepIndex;
+          const active = i === currentStepIndex;
+          return (
+            <li key={s.id} className="flex items-center gap-3 shrink-0">
+              <span
+                className={
+                  'inline-flex items-center gap-2 text-eyebrow uppercase tracking-[0.12em] ' +
+                  (active ? 'text-brass' : done ? 'text-oat' : 'text-stone')
+                }
+              >
+                <span
+                  aria-hidden="true"
+                  className={
+                    'inline-flex h-5 w-5 items-center justify-center rounded-pill border text-[0.65rem] ' +
+                    (active
+                      ? 'border-brass text-brass'
+                      : done
+                        ? 'border-oat/60 text-oat'
+                        : 'border-stone/60 text-stone')
+                  }
+                >
+                  {i + 1}
+                </span>
+                {s.label}
+              </span>
+              {i < STEPS.length - 1 && (
+                <span
+                  aria-hidden="true"
+                  className={'h-px w-6 ' + (done ? 'bg-brass/70' : 'bg-ash')}
+                />
+              )}
+            </li>
+          );
+        })}
+      </ol>
+
       <section className="card">
-        <p className="eyebrow">Manual calendar scheduler</p>
-        <h2>Book a session</h2>
-        <p className="muted section-desc">Select slot cards across one or more days, then confirm your booking in one action.</p>
+        <p className="eyebrow">Times</p>
+        <h3 className="font-display font-light text-h3 text-ivory">Pick your slots</h3>
+        <p className="muted section-desc">Select times across one or more days, then continue.</p>
 
         <TwoWeekCalendar days={twoWeekDays} selectedDay={selectedDay} onSelectDay={handleSelectDay} daysWithSelections={selectedSlotsByDay} />
 

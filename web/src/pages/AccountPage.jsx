@@ -1,7 +1,21 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { KeyRound, Mail, Smartphone, Wallet, Fingerprint, LogOut } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
 import { toTitleCase, abbreviateWallet } from '../lib/helpers';
+import { Button, Eyebrow } from '../components/ui';
+
+function ProviderIcon({ provider }) {
+  const map = {
+    passkey: Fingerprint,
+    google: KeyRound,
+    ethereum: Wallet,
+    phone: Smartphone,
+    email: Mail,
+  };
+  const Icon = map[provider] || Mail;
+  return <Icon size={18} strokeWidth={1.5} />;
+}
 
 export default function AccountPage() {
   const {
@@ -43,7 +57,18 @@ export default function AccountPage() {
   const hasPasskeys = passkeyFactors.length > 0;
 
   return (
-    <div className="page-account">
+    <div className="page-account pb-8 animate-fade-up">
+      {/* Header */}
+      <section className="mb-8">
+        <Eyebrow className="mb-2">Account</Eyebrow>
+        <h2 className="font-display font-light text-h1 leading-tight tracking-tight text-ivory">
+          {currentUser.name}
+        </h2>
+        {currentUser.email && (
+          <p className="mt-2 text-body text-oat">{currentUser.email}</p>
+        )}
+      </section>
+
       {/* Profile Section */}
       <section className="card">
         <h3>Profile</h3>
@@ -90,16 +115,8 @@ export default function AccountPage() {
           <div className="auth-providers-list">
             {effectiveProviders.map((provider) => (
               <div key={provider} className="auth-provider-row">
-                <span className="auth-provider-icon">
-                  {provider === 'passkey'
-                    ? '🗝️'
-                    : provider === 'google'
-                      ? '🔑'
-                      : provider === 'ethereum'
-                        ? '⬡'
-                        : provider === 'phone'
-                          ? '📱'
-                          : '✉️'}
+                <span className="auth-provider-icon" style={{ color: 'var(--accent)' }}>
+                  <ProviderIcon provider={provider} />
                 </span>
                 <span>{toTitleCase(provider)}</span>
                 <span className="badge badge-active">Connected</span>
@@ -166,7 +183,9 @@ export default function AccountPage() {
               <div className="auth-providers-list">
                 {passkeyFactors.map((factor) => (
                   <div key={factor.id} className="auth-provider-row">
-                    <span className="auth-provider-icon">🗝️</span>
+                    <span className="auth-provider-icon" style={{ color: 'var(--accent)' }}>
+                      <Fingerprint size={18} strokeWidth={1.5} />
+                    </span>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem' }}>
                       <span>{factor.friendly_name || 'Passkey'}</span>
                       <span className="muted" style={{ fontSize: '0.72rem' }}>
@@ -229,17 +248,19 @@ export default function AccountPage() {
       </section>
 
       {/* Sign Out */}
-      <section className="card">
-        <button
-          className="btn-danger"
-          style={{ width: '100%' }}
+      <section className="mt-4">
+        <Button
+          variant="tertiary"
+          size="md"
+          className="w-full"
           onClick={() => {
             signOut();
             navigate('/');
           }}
         >
-          Sign Out
-        </button>
+          <LogOut size={16} strokeWidth={1.5} />
+          Sign out
+        </Button>
       </section>
     </div>
   );

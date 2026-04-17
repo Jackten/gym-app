@@ -3,6 +3,7 @@ import { Routes, Route, Navigate, useLocation, Link } from 'react-router-dom';
 import { useApp } from './contexts/AppContext';
 import BottomNav from './components/BottomNav';
 import Notice from './components/Notice';
+import { Wordmark } from './components/ui';
 
 import LandingPage from './pages/LandingPage';
 import AuthPage from './pages/AuthPage';
@@ -105,21 +106,22 @@ export default function App() {
       <div className="ambient ambient-two" />
 
       <main className={`app${showBottomNav ? ' has-bottom-nav' : ''}`}>
-        {/* Inner page header */}
+        {/* Inner page header — brand wordmark + optional member pill */}
         {location.pathname !== '/signin' &&
           location.pathname !== '/register' &&
           location.pathname !== '/auth/callback' && (
-            <header className="topbar topbar-inner">
-              <div className="topbar-brand">
-                <h1>
-                  <Link to="/home" className="topbar-home-link">Pelayo Wellness</Link>
-                </h1>
-              </div>
+            <header className="flex items-center justify-between gap-4 pb-5 mb-6 border-b border-ash/60">
+              <Link
+                to="/home"
+                aria-label="Pelayo Wellness — home"
+                className="inline-flex items-center text-ivory hover:text-brass transition-colors duration-180"
+              >
+                <Wordmark className="h-5 md:h-6" />
+              </Link>
               {currentUser && (
-                <div className="topbar-actions">
-                  <div className="member-pill">
-                    <strong>{currentUser.name}</strong>
-                  </div>
+                <div className="inline-flex items-center gap-2 rounded-pill border border-ash/70 bg-onyx/50 px-3 py-1.5 text-body-sm text-oat">
+                  <span className="text-eyebrow uppercase tracking-[0.12em] text-stone">Member</span>
+                  <span className="text-ivory font-medium">{currentUser.name}</span>
                 </div>
               )}
             </header>
@@ -206,8 +208,8 @@ export default function App() {
           </Routes>
         </div>
 
-        <footer className="muted app-footer">
-          <p>Pelayo Wellness · Premium Private Training</p>
+        <footer className="mt-16 pt-8 border-t border-ash/50">
+          <p className="text-body-sm text-stone">Pelayo Wellness · Private gym · thirty-minute sessions</p>
         </footer>
       </main>
 

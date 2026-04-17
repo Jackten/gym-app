@@ -1,8 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { KeyRound, Mail, ArrowLeft } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
 import { AUTH_METHODS, AUTH_VIEW_COPY, EMPTY_AUTH_FORM } from '../lib/constants';
 import { abbreviateWallet } from '../lib/helpers';
+
+const METHOD_ICONS = {
+  google: KeyRound,
+  email: Mail,
+};
 import {
   consumeAuthRedirect,
   readAuthRedirect,
@@ -99,13 +105,17 @@ export default function AuthPage() {
             <h2>{copy.title}</h2>
             <p>{copy.blurb}</p>
           </div>
-          <button onClick={() => navigate('/')}>← Back</button>
+          <button onClick={() => navigate('/')} aria-label="Back">
+            <ArrowLeft size={14} strokeWidth={1.5} style={{ marginRight: '0.35rem', verticalAlign: '-2px' }} />
+            Back
+          </button>
         </div>
 
         <div className="auth-methods">
           {AUTH_METHODS.map((method) => {
             const disabled = method.comingSoon
               || (method.id === 'passkey' && (!passkeySupported || authMode === 'register'));
+            const Icon = METHOD_ICONS[method.id] || Mail;
 
             return (
             <button
@@ -116,8 +126,9 @@ export default function AuthPage() {
               disabled={disabled}
               aria-disabled={disabled}
             >
-              <strong>
-                {method.icon} {method.title}
+              <strong style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Icon size={16} strokeWidth={1.5} style={{ color: 'var(--accent)' }} />
+                {method.title}
               </strong>
               <span>{method.subtitle}</span>
             </button>
@@ -242,7 +253,7 @@ export default function AuthPage() {
 
           {authMethod && authMode === 'register' && (
             <p className="muted" style={{ margin: 0, fontSize: '0.82rem' }}>
-              Waiver paperwork is handled separately before in-person sessions when needed.
+              You can sign the digital waiver from your account before your first in-person session.
             </p>
           )}
 

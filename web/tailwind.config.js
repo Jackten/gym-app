@@ -4,6 +4,11 @@
 export default {
   content: ['./index.html', './src/**/*.{js,jsx}'],
   darkMode: 'class',
+  // Disable preflight during the legacy-CSS migration — styles.css has its
+  // own baseline and preflight's `border-width: 0` zeroed the brass active
+  // borders on slot rows / calendar chips / auth methods. Re-enable once
+  // legacy CSS is retired (Phase F).
+  corePlugins: { preflight: false },
   theme: {
     extend: {
       colors: {

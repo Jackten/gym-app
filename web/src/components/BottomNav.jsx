@@ -4,7 +4,7 @@ import { Dumbbell, Calendar, ClipboardList, User } from 'lucide-react';
 
 const NAV_ITEMS = [
   { to: '/home', label: 'Home', Icon: Dumbbell },
-  { to: '/calendar', label: 'Calendar', Icon: Calendar, primary: true },
+  { to: '/calendar', label: 'Calendar', Icon: Calendar },
   { to: '/bookings', label: 'Bookings', Icon: ClipboardList },
   { to: '/account', label: 'Account', Icon: User },
 ];
@@ -12,12 +12,12 @@ const NAV_ITEMS = [
 export default function BottomNav() {
   return (
     <nav className="bottom-nav">
-      {NAV_ITEMS.map(({ to, label, Icon, primary }) => (
+      {NAV_ITEMS.map(({ to, label, Icon }) => (
         <NavLink
           key={to}
           to={to}
           className={({ isActive }) =>
-            `bottom-nav-item${isActive ? ' active' : ''}${primary ? ' primary' : ''}`
+            `bottom-nav-item${isActive ? ' active' : ''}`
           }
         >
           <span className="bottom-nav-icon" aria-hidden="true">

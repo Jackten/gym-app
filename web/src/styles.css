@@ -1,8 +1,10 @@
 /* Cascade-layer order. Later = higher priority.
-   `legacy` wraps the old styles.css rules below so Tailwind's
-   base / components / utilities layers override them during the
-   page-by-page migration documented in web/docs/brand.md. */
-@layer legacy, base, components, utilities;
+   Tailwind's preflight is disabled in tailwind.config.js because the
+   legacy styles.css below already has its own baseline resets; re-adding
+   preflight was zeroing borders on legacy active states (slot-row,
+   calendar-day-chip, auth-method). Utilities still override `legacy`
+   as the migration progresses. See web/docs/brand.md. */
+@layer legacy, components, utilities;
 
 @tailwind base;
 @tailwind components;

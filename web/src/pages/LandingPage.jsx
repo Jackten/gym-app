@@ -71,16 +71,16 @@ export default function LandingPage() {
             <h1 className="font-display font-light text-[clamp(2.5rem,7vw,4.75rem)] leading-[1.04] tracking-[-0.015em] text-ivory">
               Private gym.
               <br />
-              Booked by the hour.
+              Booked by the session.
             </h1>
             <p className="mt-6 max-w-xl text-body-lg text-oat">
-              A small, private floor. Book the hour for yourself, bring a
-              partner, or reserve alongside one of our trainers. Never more
-              than a handful of people in the room.
+              A small, private floor. Book a thirty-minute session for
+              yourself, bring a partner, or reserve alongside one of our
+              trainers. Never more than a handful of people in the room.
             </p>
             <div className="mt-10 flex flex-wrap items-center gap-4">
               <Button size="lg" onClick={() => navigate('/register')}>
-                Book an hour
+                Book a session
               </Button>
               <Button
                 size="lg"
@@ -111,7 +111,7 @@ export default function LandingPage() {
                 never a crowd, never a queue for the rack.
               </p>
               <p>
-                Book an hour for yourself, bring a partner, or book alongside
+                Book a session for yourself, bring a partner, or book alongside
                 one of our trainers. The room is yours for the time you
                 reserve.
               </p>
@@ -149,8 +149,8 @@ export default function LandingPage() {
               <CardTitle className="mt-2">Open booking</CardTitle>
               <CardBody className="mt-4">
                 <p>
-                  Reserve the hour for yourself. A couple of others may be on
-                  the floor — no more than that.
+                  Reserve a thirty-minute session for yourself. A couple of
+                  others may be on the floor — no more than that.
                 </p>
               </CardBody>
             </Card>
@@ -159,8 +159,8 @@ export default function LandingPage() {
               <CardTitle className="mt-2">Bring someone</CardTitle>
               <CardBody className="mt-4">
                 <p>
-                  Book with a partner and share the floor. Same hour, same
-                  space, your own plan.
+                  Book with a partner and share the floor. Same session,
+                  same space, your own plan.
                 </p>
               </CardBody>
             </Card>
@@ -170,7 +170,7 @@ export default function LandingPage() {
               <CardBody className="mt-4">
                 <p>
                   Book alongside one of our trainers. Programming, form, and
-                  focus for the hour you&apos;re in.
+                  focus for the session you&apos;re in.
                 </p>
               </CardBody>
             </Card>
@@ -186,12 +186,12 @@ export default function LandingPage() {
             <h2 className="font-display font-light text-h1 md:text-[2.75rem] text-ivory leading-tight tracking-tight">
               A single room,
               <br />
-              open any hour.
+              open any time.
             </h2>
             <p className="mt-6 max-w-prose text-body-lg text-oat">
               Warm woods, directional light, and equipment chosen for
-              longevity. Open twenty-four hours a day — book the hour that
-              suits you.
+              longevity. Open twenty-four hours a day — book a session
+              whenever it suits you.
             </p>
             <dl className="mt-10 grid grid-cols-2 gap-y-6 gap-x-8 max-w-md">
               <div>
@@ -213,7 +213,7 @@ export default function LandingPage() {
                 <dd className="mt-2 text-body text-ivory">
                   Open 24/7
                   <br />
-                  Book any hour
+                  Book any time
                 </dd>
               </div>
             </dl>
@@ -248,7 +248,7 @@ export default function LandingPage() {
           </div>
           <div className="flex flex-wrap items-center gap-4">
             <Button size="lg" onClick={() => navigate('/register')}>
-              Book an hour
+              Book a session
             </Button>
             <Button
               size="lg"
@@ -269,7 +269,7 @@ export default function LandingPage() {
             <span>© {new Date().getFullYear()} Pelayo Wellness</span>
           </div>
           <div className="flex gap-6">
-            <span>Private gym · booked by the hour</span>
+            <span>Private gym · thirty-minute sessions</span>
           </div>
         </div>
       </footer>

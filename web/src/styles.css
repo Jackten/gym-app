@@ -1,6 +1,21 @@
+/* Cascade-layer order. Later = higher priority.
+   `legacy` wraps the old styles.css rules below so Tailwind's
+   base / components / utilities layers override them during the
+   page-by-page migration documented in web/docs/brand.md. */
+@layer legacy, base, components, utilities;
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer legacy {
+
 /* ─────────────────────────────────────────────────
    Pelayo Wellness — Premium Design System v2
    Route-driven, mobile-first, booking-forward
+   Legacy CSS kept side-by-side during Tailwind migration.
+   New work should use Tailwind tokens from tailwind.config.js;
+   see web/docs/brand.md for the source of truth.
    ───────────────────────────────────────────────── */
 
 :root {
@@ -2473,3 +2488,5 @@ tbody tr:hover { background: rgba(15, 118, 110, 0.04); }
   border-color: var(--accent-border);
   box-shadow: 0 0 0 1px var(--accent-border);
 }
+
+} /* end @layer legacy */

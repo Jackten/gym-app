@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 80" role="img" aria-label="Pelayo wordmark" preserveAspectRatio="xMidYMid meet">
+  <title>Pelayo</title>
+  <defs>
+    <style>
+      .wm-letter {
+        font-family: "Playfair Display", "Canela Deck", "Migra", Georgia, serif;
+        font-weight: 300;
+        font-size: 56px;
+        letter-spacing: 0.32em;
+        fill: currentColor;
+      }
+    </style>
+  </defs>
+  <text x="50%" y="55" class="wm-letter" text-anchor="middle" dominant-baseline="middle">PELAYO</text>
+</svg>

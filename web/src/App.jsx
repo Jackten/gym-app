@@ -79,6 +79,8 @@ export default function App() {
 
   // Determine if we're on a flow page (session steps, top-up) where we might want minimal chrome
   const isFlowPage = location.pathname.startsWith('/session');
+  // Landing renders its own full-bleed chrome — skip the legacy app shell.
+  const isLanding = location.pathname === '/';
 
   // Show bottom nav only for authenticated users on app pages
   const showBottomNav =
@@ -86,37 +88,25 @@ export default function App() {
     !['/signin', '/register', '/auth/callback', '/'].includes(location.pathname) &&
     !isFlowPage;
 
+  if (isLanding) {
+    return (
+      <div className="min-h-screen bg-onyx">
+        <Routes>
+          <Route path="/" element={<LandingPage />} />
+          <Route path="*" element={<Navigate to={currentUser ? '/home' : '/'} replace />} />
+        </Routes>
+      </div>
+    );
+  }
+
   return (
     <div className="app-shell">
       <div className="ambient ambient-one" />
       <div className="ambient ambient-two" />
 
       <main className={`app${showBottomNav ? ' has-bottom-nav' : ''}`}>
-        {/* Show full topbar on landing, simplified on inner pages */}
-        {location.pathname === '/' && (
-          <header className="topbar">
-            <div className="topbar-brand">
-              <p className="eyebrow">Pelayo Studio Platform</p>
-              <h1>Pelayo Wellness</h1>
-            </div>
-            {currentUser ? (
-              <div className="topbar-actions">
-                <div className="member-pill">
-                  <strong>{currentUser.name}</strong>
-                </div>
-              </div>
-            ) : (
-              <div className="topbar-actions">
-                <Link to="/signin" className="topbar-link">Sign in</Link>
-                <Link to="/register" className="btn-primary topbar-btn">Create account</Link>
-              </div>
-            )}
-          </header>
-        )}
-
         {/* Inner page header */}
-        {location.pathname !== '/' &&
-          location.pathname !== '/signin' &&
+        {location.pathname !== '/signin' &&
           location.pathname !== '/register' &&
           location.pathname !== '/auth/callback' && (
             <header className="topbar topbar-inner">
